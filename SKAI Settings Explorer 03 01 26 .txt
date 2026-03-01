@@ -1214,6 +1214,165 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
         min-width: 0;
       }
 
+
+      /* ══════════════════════════════════════════════
+         Dual-handle range slider widget
+      ══════════════════════════════════════════════ */
+      .skai-slider-widget {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 10px 12px 10px;
+        background: rgba(255,255,255,0.9);
+        border-radius: var(--skai-radius-md);
+        border: 1px solid rgba(148,163,184,0.6);
+      }
+      .skai-slider-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .skai-slider-val {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--skai-primary-strong);
+        background: var(--skai-primary-soft);
+        padding: 2px 9px;
+        border-radius: var(--skai-radius-pill);
+        min-width: 60px;
+        text-align: center;
+      }
+      .skai-slider-track-wrap {
+        position: relative;
+        height: 28px;
+        display: flex;
+        align-items: center;
+      }
+      .skai-slider-track {
+        position: absolute;
+        left: 0; right: 0;
+        height: 5px;
+        background: #e5e7eb;
+        border-radius: 3px;
+        pointer-events: none;
+      }
+      .skai-slider-fill {
+        position: absolute;
+        height: 5px;
+        background: var(--skai-primary);
+        border-radius: 3px;
+        pointer-events: none;
+      }
+      /* Both thumbs overlaid on the same track */
+      .skai-thumb {
+        position: absolute;
+        width: 100%;
+        height: 0;
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+        outline: none;
+        pointer-events: none;
+      }
+      .skai-thumb::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        pointer-events: all;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--skai-primary);
+        border: 3px solid #fff;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.35);
+        cursor: pointer;
+        transition: transform 0.12s, box-shadow 0.12s;
+        margin-top: -8px;
+      }
+      .skai-thumb::-webkit-slider-thumb:hover,
+      .skai-thumb:focus::-webkit-slider-thumb {
+        transform: scale(1.18);
+        box-shadow: 0 3px 12px rgba(37,99,235,0.48);
+      }
+      .skai-thumb::-moz-range-thumb {
+        pointer-events: all;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--skai-primary);
+        border: 3px solid #fff;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.35);
+        cursor: pointer;
+      }
+      .skai-thumb::-moz-range-track {
+        background: transparent;
+        height: 5px;
+      }
+      .skai-slider-ticks {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.66rem;
+        color: #9ca3af;
+        margin: 0 2px;
+        letter-spacing: -0.01em;
+      }
+      /* Hide the lo thumb on single-handle (point) sliders */
+      .skai-thumb-hidden {
+        display: none !important;
+      }
+      .skai-slider-widget small {
+        font-size: 0.75rem;
+        color: var(--skai-text-muted);
+        line-height: 1.4;
+        margin-top: 2px;
+      }
+
+      /* Batch-size checkbox group */
+      .skai-checkbox-widget {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px 12px 8px;
+        background: rgba(255,255,255,0.9);
+        border-radius: var(--skai-radius-md);
+        border: 1px solid rgba(148,163,184,0.6);
+      }
+      .skai-checkbox-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .skai-batch-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 12px;
+        border-radius: var(--skai-radius-pill);
+        background: #f3f4f6;
+        border: 1px solid #d1d5db;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #374151;
+        cursor: pointer;
+        transition: background 0.14s, border-color 0.14s, color 0.14s;
+        user-select: none;
+      }
+      .skai-batch-pill input[type="checkbox"] {
+        display: none;
+      }
+      .skai-batch-pill.active {
+        background: var(--skai-primary-soft);
+        border-color: var(--skai-primary);
+        color: var(--skai-primary-strong);
+      }
+      .skai-checkbox-widget small {
+        font-size: 0.75rem;
+        color: var(--skai-text-muted);
+        line-height: 1.4;
+      }
+
     [[/style]]
 
 
@@ -1365,29 +1524,66 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
                 [[button type="button" id="presetDeep"]]Deep Search[[/button]]
               [[/div]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Epochs[[/span]]
-                [[input type="text" id="epochsRange" value="70-130" placeholder="e.g., 100 or 70-130"]]
-                [[small]]How many full passes the model makes over the data. More epochs = more learning, but slower. Single value or range (5–1000).[[/small]]
-              [[/label]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Epochs[[/span]]
+                  [[span class="skai-slider-val" id="epochsRange_disp"]]70 – 130[[/span]]
+                [[/div]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="epochsRange_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="epochsRange_lo" min="5" max="500" step="5" value="70"]]
+                  [[input type="range" class="skai-thumb" id="epochsRange_hi" min="5" max="500" step="5" value="130"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]5[[/span]][[span]]125[[/span]][[span]]250[[/span]][[span]]375[[/span]][[span]]500[[/span]][[/div]]
+                [[small]]Training passes over the data. Drag both handles to set the search range. More epochs = more thorough but slower.[[/small]]
+                [[input type="hidden" id="epochsRange" value="70-130"]]
+              [[/div]]
 
-              [[label]]
+              [[div class="skai-checkbox-widget"]]
                 [[span class="skai-field-name"]]Batch Size[[/span]]
-                [[input type="text" id="batchSizes" value="4" placeholder="e.g., 4, 8, 16"]]
-                [[small]]Draws processed per weight update. Smaller = finer updates, slower. Comma-separated to test multiple values (e.g., 4, 8, 16).[[/small]]
-              [[/label]]
+                [[div class="skai-checkbox-row" id="batchCheckboxRow"]]
+                  [[label class="skai-batch-pill active"]][[input type="checkbox" class="skai-batch-chk" value="4" checked]]4[[/label]]
+                  [[label class="skai-batch-pill"]][[input type="checkbox" class="skai-batch-chk" value="8"]]8[[/label]]
+                  [[label class="skai-batch-pill"]][[input type="checkbox" class="skai-batch-chk" value="16"]]16[[/label]]
+                  [[label class="skai-batch-pill"]][[input type="checkbox" class="skai-batch-chk" value="32"]]32[[/label]]
+                  [[label class="skai-batch-pill"]][[input type="checkbox" class="skai-batch-chk" value="64"]]64[[/label]]
+                [[/div]]
+                [[small]]Select which batch sizes to test. Smaller sizes (4, 8) give finer weight updates; larger (32, 64) are faster.[[/small]]
+                [[input type="hidden" id="batchSizes" value="4"]]
+              [[/div]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Dropout Rate[[/span]]
-                [[input type="text" id="dropoutRates" value="0.2" placeholder="e.g., 0.2 or 0.1-0.4"]]
-                [[small]]Randomly disables neurons during training to prevent over-fitting. Range 0.1–0.5. Single value or range.[[/small]]
-              [[/label]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Dropout Rate[[/span]]
+                  [[span class="skai-slider-val" id="dropoutRates_disp"]]0.20[[/span]]
+                [[/div]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="dropoutRates_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="dropoutRates_lo" min="0.05" max="0.50" step="0.05" value="0.20"]]
+                  [[input type="range" class="skai-thumb" id="dropoutRates_hi" min="0.05" max="0.50" step="0.05" value="0.20"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]0.05[[/span]][[span]]0.15[[/span]][[span]]0.25[[/span]][[span]]0.35[[/span]][[span]]0.50[[/span]][[/div]]
+                [[small]]Fraction of neurons randomly disabled each update step. Range 0.05–0.50. Wider range = more combos to test.[[/small]]
+                [[input type="hidden" id="dropoutRates" value="0.2"]]
+              [[/div]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Learning Rate[[/span]]
-                [[input type="text" id="learningRates" value="0.002" placeholder="e.g., 0.001, 0.002"]]
-                [[small]]Step size for weight updates. Too high = unstable; too low = slow. Typical values: 0.001–0.005.[[/small]]
-              [[/label]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Learning Rate[[/span]]
+                  [[span class="skai-slider-val" id="learningRates_disp"]]0.0020[[/span]]
+                [[/div]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="learningRates_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="learningRates_lo" min="0.0005" max="0.01" step="0.0005" value="0.002"]]
+                  [[input type="range" class="skai-thumb" id="learningRates_hi" min="0.0005" max="0.01" step="0.0005" value="0.002"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]0.0005[[/span]][[span]]0.003[[/span]][[span]]0.005[[/span]][[span]]0.008[[/span]][[span]]0.010[[/span]][[/div]]
+                [[small]]How fast the model updates its weights. Too high = unstable; too low = slow to learn. Typical: 0.001–0.005.[[/small]]
+                [[input type="hidden" id="learningRates" value="0.002"]]
+              [[/div]]
 
               [[label]]
                 [[span class="skai-field-name"]]Activation Function[[/span]]
@@ -1399,23 +1595,53 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
                 [[small]]Nonlinear function inside each neuron. Tanh is the default. Ctrl+Click to select multiple and test them.[[/small]]
               [[/label]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Hidden Layers[[/span]]
-                [[input type="text" id="hiddenLayers" value="2" placeholder="e.g., 2 or 1-4"]]
-                [[small]]Number of intermediate layers in the network. More layers = more capacity but higher over-fitting risk. Single value or range.[[/small]]
-              [[/label]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Hidden Layers[[/span]]
+                  [[span class="skai-slider-val" id="hiddenLayers_disp"]]2[[/span]]
+                [[/div]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="hiddenLayers_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="hiddenLayers_lo" min="1" max="6" step="1" value="2"]]
+                  [[input type="range" class="skai-thumb" id="hiddenLayers_hi" min="1" max="6" step="1" value="2"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]1[[/span]][[span]]2[[/span]][[span]]3[[/span]][[span]]4[[/span]][[span]]5[[/span]][[span]]6[[/span]][[/div]]
+                [[small]]Number of intermediate layers. More = more pattern capacity but higher over-fitting risk on small datasets.[[/small]]
+                [[input type="hidden" id="hiddenLayers" value="2"]]
+              [[/div]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Recency Decay (0–1)[[/span]]
-                [[input type="text" id="recencyDecayRates" value="1" placeholder="e.g., 0.5, 0.75, 1"]]
-                [[small]]1 = use all history; 0.5 = use most recent 50% of draws only. Comma-separated to test multiple.[[/small]]
-              [[/label]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Recency Decay (0–1)[[/span]]
+                  [[span class="skai-slider-val" id="recencyDecayRates_disp"]]1.00[[/span]]
+                [[/div]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="recencyDecayRates_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="recencyDecayRates_lo" min="0" max="1" step="0.25" value="1"]]
+                  [[input type="range" class="skai-thumb" id="recencyDecayRates_hi" min="0" max="1" step="0.25" value="1"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]0[[/span]][[span]]0.25[[/span]][[span]]0.50[[/span]][[span]]0.75[[/span]][[span]]1[[/span]][[/div]]
+                [[small]]1 = use full draw history; 0 = use only the most recent draws. Drag to test a range of values.[[/small]]
+                [[input type="hidden" id="recencyDecayRates" value="1"]]
+              [[/div]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Skip Strength (0–1)[[/span]]
-                [[input type="text" id="skipAlphaValues" value="0.5" placeholder="e.g., 0.2, 0.5, 1"]]
-                [[small]]How much weight skip-pattern features carry in the neural network. 0 = ignore; 1 = full weight.[[/small]]
-              [[/label]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Skip Strength (0–1)[[/span]]
+                  [[span class="skai-slider-val" id="skipAlphaValues_disp"]]0.50[[/span]]
+                [[/div]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="skipAlphaValues_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="skipAlphaValues_lo" min="0" max="1" step="0.25" value="0.5"]]
+                  [[input type="range" class="skai-thumb" id="skipAlphaValues_hi" min="0" max="1" step="0.25" value="0.5"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]0[[/span]][[span]]0.25[[/span]][[span]]0.50[[/span]][[span]]0.75[[/span]][[span]]1[[/span]][[/div]]
+                [[small]]How much weight skip-pattern features carry inside the neural network. 0 = ignore skips; 1 = full weight.[[/small]]
+                [[input type="hidden" id="skipAlphaValues" value="0.5"]]
+              [[/div]]
 
               [[label]]
                 [[span class="skai-field-name"]]Main Weight Profiles[[/span]]
@@ -1457,17 +1683,37 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
                 [[button type="button" id="presetExploratorySkai"]]Exploratory[[/button]]
               [[/div]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Analysis Window (draws)[[/span]]
-                [[input type="text" id="skaiWindowSize" value="600" placeholder="e.g., 600"]]
-                [[small]]How many recent draws SKAI considers. Typical: 400–800. Smaller reacts faster; larger is more stable.[[/small]]
-              [[/label]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Analysis Window (draws)[[/span]]
+                  [[span class="skai-slider-val" id="skaiWindowSize_disp"]]600[[/span]]
+                [[/div]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="skaiWindowSize_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="skaiWindowSize_lo" min="100" max="1500" step="50" value="600" class="skai-thumb skai-thumb-hidden"]]
+                  [[input type="range" class="skai-thumb" id="skaiWindowSize_hi" min="100" max="1500" step="50" value="600"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]100[[/span]][[span]]400[[/span]][[span]]700[[/span]][[span]]1100[[/span]][[span]]1500[[/span]][[/div]]
+                [[small]]How many recent draws SKAI reads. Typical: 400–800. Smaller = faster reaction to trends; larger = more stable.[[/small]]
+                [[input type="hidden" id="skaiWindowSize" value="600"]]
+              [[/div]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Skip Window (draws)[[/span]]
-                [[input type="text" id="skaiSkipWindow" value="240" placeholder="e.g., 240"]]
-                [[small]]How far back SKAI looks when calculating skip patterns. Typical: 30–800.[[/small]]
-              [[/label]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Skip Window (draws)[[/span]]
+                  [[span class="skai-slider-val" id="skaiSkipWindow_disp"]]240[[/span]]
+                [[/div]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="skaiSkipWindow_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="skaiSkipWindow_lo" min="30" max="600" step="30" value="240" class="skai-thumb skai-thumb-hidden"]]
+                  [[input type="range" class="skai-thumb" id="skaiSkipWindow_hi" min="30" max="600" step="30" value="240"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]30[[/span]][[span]]150[[/span]][[span]]300[[/span]][[span]]450[[/span]][[span]]600[[/span]][[/div]]
+                [[small]]How far back SKAI looks when measuring skip patterns. Typical: 30–600.[[/small]]
+                [[input type="hidden" id="skaiSkipWindow" value="240"]]
+              [[/div]]
 
               [[label]]
                 [[span class="skai-field-name"]]Main-ball Weights (Freq / Skip / Hist %)[[/span]]
@@ -1489,14 +1735,26 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
                 [[small]]Same as above but applied to the bonus / extra ball only.[[/small]]
               [[/label]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Blend – Skip % / AI %[[/span]]
-                [[div class="skai-triple"]]
-                  [[input type="text" id="skaiBlendSkipPct" name="skaiBlendSkipPct" value="100" placeholder="Skip %"]]
-                  [[input type="number" id="skaiBlendAiPct" name="skaiBlendAiPct" value="0" placeholder="AI %"]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Blend – Skip % Range[[/span]]
+                  [[span class="skai-slider-val" id="skaiBlendSkipPct_disp"]]100[[/span]]
                 [[/div]]
-                [[small]]Portion of skip-driven vs. AI-driven signals in the final score. Skip + AI should sum to 100. Enter a range in Skip % (e.g., 10-60) to search.[[/small]]
-              [[/label]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="skaiBlendSkipPct_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="skaiBlendSkipPct_lo" min="0" max="100" step="5" value="100"]]
+                  [[input type="range" class="skai-thumb" id="skaiBlendSkipPct_hi" min="0" max="100" step="5" value="100"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]0%[[/span]][[span]]25%[[/span]][[span]]50%[[/span]][[span]]75%[[/span]][[span]]100%[[/span]][[/div]]
+                [[small]]
+                  How much of the final SKAI score comes from skip signals vs. AI estimates.
+                  Drag both handles to define a range (e.g., 30–70%) and the lab will test each value in 5% steps.
+                  AI % is automatically set to 100 − Skip %.
+                [[/small]]
+                [[input type="hidden" id="skaiBlendSkipPct" name="skaiBlendSkipPct" value="100"]]
+                [[input type="hidden" id="skaiBlendAiPct" name="skaiBlendAiPct" value="0"]]
+              [[/div]]
 
               [[label]]
                 [[span class="skai-field-name"]]Sampling – Temperature / Diversity / Gap[[/span]]
@@ -1541,11 +1799,21 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
                 [[small]]Smooths probability estimates for numbers that appear rarely. K=1 is the safest default.[[/small]]
               [[/label]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Skip Gamma (0–1)[[/span]]
-                [[input type="text" id="skipGamma" value="0.2" placeholder="e.g., 0.2 or 0.1-0.5"]]
-                [[small]]How strongly skip patterns influence SKAI's final score. Default 0.20. Enter a range (e.g., 0.1-0.5) to search in 0.1 steps.[[/small]]
-              [[/label]]
+              [[div class="skai-slider-widget"]]
+                [[div class="skai-slider-header"]]
+                  [[span class="skai-field-name"]]Skip Gamma (0–1)[[/span]]
+                  [[span class="skai-slider-val" id="skipGamma_disp"]]0.20[[/span]]
+                [[/div]]
+                [[div class="skai-slider-track-wrap"]]
+                  [[div class="skai-slider-track"]][[/div]]
+                  [[div class="skai-slider-fill" id="skipGamma_fill"]][[/div]]
+                  [[input type="range" class="skai-thumb" id="skipGamma_lo" min="0" max="1" step="0.1" value="0.2"]]
+                  [[input type="range" class="skai-thumb" id="skipGamma_hi" min="0" max="1" step="0.1" value="0.2"]]
+                [[/div]]
+                [[div class="skai-slider-ticks"]][[span]]0[[/span]][[span]]0.2[[/span]][[span]]0.4[[/span]][[span]]0.6[[/span]][[span]]0.8[[/span]][[span]]1[[/span]][[/div]]
+                [[small]]How strongly skip patterns influence SKAI's final score. Drag to set search range (tested in 0.1 steps).[[/small]]
+                [[input type="hidden" id="skipGamma" value="0.2"]]
+              [[/div]]
 
               [[label]]
                 [[span class="skai-field-name"]]Risk Profile[[/span]]
@@ -4131,6 +4399,7 @@ startBtn.addEventListener('click', async () => {
 // NEW: PRESET PROFILES
 // -----------------------------------------
 function applyPreset(values) {
+  // Update hidden inputs (the slider JS reads these on sync)
   document.getElementById('epochsRange').value        = values.epochs;
   document.getElementById('batchSizes').value         = values.batch;
   document.getElementById('dropoutRates').value       = values.dropout;
@@ -4138,7 +4407,30 @@ function applyPreset(values) {
   document.getElementById('hiddenLayers').value       = values.layers;
   document.getElementById('recencyDecayRates').value  = values.recency;
   document.getElementById('skipAlphaValues').value    = values.skip;
-  
+
+  // Sync range sliders from the new hidden-input values
+  function parseMinMax(str) {
+    str = String(str || '').trim();
+    if (str.indexOf(',') !== -1) {
+      var nums = str.split(',').map(parseFloat).filter(function(v){ return !isNaN(v); });
+      if (!nums.length) { return [NaN, NaN]; }
+      return [Math.min.apply(null, nums), Math.max.apply(null, nums)];
+    }
+    if (str.indexOf('-') !== -1) {
+      var pts = str.split('-');
+      return [parseFloat(pts[0]), parseFloat(pts[1] || pts[0])];
+    }
+    var s = parseFloat(str);
+    return [s, s];
+  }
+  var ep  = parseMinMax(values.epochs);   if (typeof setSliderRange === 'function') { setSliderRange('epochsRange',       ep[0],  ep[1]);  }
+  var dr  = parseMinMax(values.dropout);  if (typeof setSliderRange === 'function') { setSliderRange('dropoutRates',      dr[0],  dr[1]);  }
+  var lr  = parseMinMax(values.lr);       if (typeof setSliderRange === 'function') { setSliderRange('learningRates',     lr[0],  lr[1]);  }
+  var hl  = parseMinMax(values.layers);   if (typeof setSliderRange === 'function') { setSliderRange('hiddenLayers',      hl[0],  hl[1]);  }
+  var rc  = parseMinMax(values.recency);  if (typeof setSliderRange === 'function') { setSliderRange('recencyDecayRates', rc[0],  rc[1]);  }
+  var sk  = parseMinMax(values.skip);     if (typeof setSliderRange === 'function') { setSliderRange('skipAlphaValues',   sk[0],  sk[1]);  }
+  if (typeof syncBatchCheckboxes === 'function') { syncBatchCheckboxes(values.batch); }
+
   // Activation Functions Multi-Select
   const afSel = document.getElementById('activationFunctions');
   Array.from(afSel.options).forEach(o => o.selected = false);
@@ -4322,6 +4614,16 @@ function applySkaiPreset(mode) {
   if (elTopNNums)  { elTopNNums.value  = cfg.topNNumbers; }
   if (elTopNComb)  { elTopNComb.value  = cfg.topNCombos; }
   if (elMode)      { elMode.value      = cfg.runMode; }
+
+  // Sync sliders for the SKAI fields that now have range widgets
+  if (typeof setSliderRange === 'function') {
+    setSliderRange('skaiWindowSize',   cfg.windowDraws, cfg.windowDraws);
+    setSliderRange('skaiSkipWindow',   cfg.skipWindow,  cfg.skipWindow);
+    setSliderRange('skaiBlendSkipPct', cfg.blendSkip,   cfg.blendSkip);
+    if (cfg.skipGamma !== undefined) {
+      setSliderRange('skipGamma', cfg.skipGamma, cfg.skipGamma);
+    }
+  }
 }
 
 
@@ -4732,6 +5034,223 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     globalData = null;
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// SKAI Range Slider Engine
+// ═══════════════════════════════════════════════════════════════════
+
+(function () {
+  'use strict';
+
+  // Build a comma-separated list of values from lo to hi with a given step.
+  function generateStepList(lo, hi, step, decimals) {
+    var result = [];
+    var prec = decimals || 0;
+    // Multiply by 10^(prec+2) so integer arithmetic handles the loop steps;
+    // the extra 2 decimal places buffer against float rounding that would
+    // otherwise skip the last value (e.g. 0.30 becoming 0.29999...).
+    var scale = Math.pow(10, prec + 2);
+    var loS = Math.round(lo * scale);
+    var hiS = Math.round(hi * scale);
+    var stS = Math.round(step * scale);
+    if (stS <= 0) { stS = 1; }
+    for (var v = loS; v <= hiS; v += stS) {
+      result.push((v / scale).toFixed(prec));
+    }
+    return result;
+  }
+
+  // Initialise one dual-handle (or single-handle) slider.
+  // cfg = { id, min, max, step, format, decimals, single }
+  //   format: 'range'  → "lo-hi"  (or "lo" when lo===hi)
+  //           'list'   → "lo,lo+step,...,hi"
+  //           'single' → just the hi value
+  function initSlider(cfg) {
+    var loEl   = document.getElementById(cfg.id + '_lo');
+    var hiEl   = document.getElementById(cfg.id + '_hi');
+    var fillEl = document.getElementById(cfg.id + '_fill');
+    var dispEl = document.getElementById(cfg.id + '_disp');
+    var hidden = document.getElementById(cfg.id);
+    if (!hiEl || !hidden) { return; }
+
+    var dec = (cfg.decimals !== undefined) ? cfg.decimals : 0;
+    var isSingle = !!cfg.single;
+
+    function refreshFill() {
+      var loVal = loEl ? parseFloat(loEl.value) : cfg.min;
+      var hiVal = parseFloat(hiEl.value);
+      var span  = cfg.max - cfg.min;
+      if (span === 0) { return; }
+      var pLo = ((loVal - cfg.min) / span) * 100;
+      var pHi = ((hiVal - cfg.min) / span) * 100;
+      if (fillEl) {
+        fillEl.style.left  = pLo + '%';
+        fillEl.style.width = (pHi - pLo) + '%';
+      }
+    }
+
+    function refreshDisplay() {
+      var loVal = loEl ? parseFloat(loEl.value) : cfg.min;
+      var hiVal = parseFloat(hiEl.value);
+      if (!dispEl) { return; }
+      if (isSingle || !loEl || loVal === hiVal) {
+        dispEl.textContent = hiVal.toFixed(dec);
+      } else {
+        dispEl.textContent = loVal.toFixed(dec) + ' – ' + hiVal.toFixed(dec);
+      }
+    }
+
+    function refreshHidden() {
+      var loVal = loEl ? parseFloat(loEl.value) : cfg.min;
+      var hiVal = parseFloat(hiEl.value);
+      if (isSingle || !loEl) {
+        hidden.value = hiVal.toFixed(dec);
+        return;
+      }
+      if (cfg.format === 'range') {
+        hidden.value = (loVal === hiVal)
+          ? loVal.toFixed(dec)
+          : loVal.toFixed(dec) + '-' + hiVal.toFixed(dec);
+      } else if (cfg.format === 'list') {
+        hidden.value = generateStepList(loVal, hiVal, cfg.step, dec).join(',');
+      } else {
+        hidden.value = hiVal.toFixed(dec);
+      }
+      // Also fire combos-count update if it exists
+      if (typeof updateCombosCount === 'function') {
+        // updateCombosCount may not exist on all page variants – ignore gracefully
+        try { updateCombosCount(); } catch(e) { /* non-critical UI update */ }
+      }
+    }
+
+    function onLoChange() {
+      if (loEl && hiEl && parseFloat(loEl.value) > parseFloat(hiEl.value)) {
+        loEl.value = hiEl.value;
+      }
+      refreshFill(); refreshDisplay(); refreshHidden();
+    }
+    function onHiChange() {
+      if (loEl && hiEl && parseFloat(hiEl.value) < parseFloat(loEl.value)) {
+        hiEl.value = loEl.value;
+      }
+      refreshFill(); refreshDisplay(); refreshHidden();
+    }
+
+    if (loEl) { loEl.addEventListener('input', onLoChange); }
+    hiEl.addEventListener('input', onHiChange);
+
+    // Initial render
+    refreshFill(); refreshDisplay(); refreshHidden();
+  }
+
+  // ─── Batch-size checkbox pills ───
+  function initBatchCheckboxes() {
+    var row = document.getElementById('batchCheckboxRow');
+    if (!row) { return; }
+    var hidden = document.getElementById('batchSizes');
+    if (!hidden) { return; }
+
+    function updateHidden() {
+      var checked = [];
+      var chks = row.querySelectorAll('.skai-batch-chk');
+      for (var i = 0; i < chks.length; i++) {
+        if (chks[i].checked) { checked.push(chks[i].value); }
+      }
+      hidden.value = checked.length ? checked.join(',') : '4';
+      if (typeof updateCombosCount === 'function') {
+        // updateCombosCount may not exist on all page variants – ignore gracefully
+        try { updateCombosCount(); } catch(e) { /* non-critical UI update */ }
+      }
+    }
+
+    var pills = row.querySelectorAll('.skai-batch-pill');
+    for (var p = 0; p < pills.length; p++) {
+      (function (pill) {
+        pill.addEventListener('click', function () {
+          var chk = pill.querySelector('input[type="checkbox"]');
+          if (!chk) { return; }
+          chk.checked = !chk.checked;
+          pill.classList.toggle('active', chk.checked);
+          // Ensure at least one is checked
+          var anyChecked = false;
+          var allChks = row.querySelectorAll('.skai-batch-chk');
+          for (var j = 0; j < allChks.length; j++) {
+            if (allChks[j].checked) { anyChecked = true; break; }
+          }
+          if (!anyChecked) {
+            chk.checked = true;
+            pill.classList.add('active');
+          }
+          updateHidden();
+        });
+      })(pills[p]);
+    }
+    updateHidden(); // initial sync
+  }
+
+  // ─── Public helper: set slider programmatically (used by presets) ───
+  window.setSliderRange = function (id, loVal, hiVal) {
+    var loEl = document.getElementById(id + '_lo');
+    var hiEl = document.getElementById(id + '_hi');
+    if (loEl) { loEl.value = loVal; }
+    if (hiEl) { hiEl.value = hiVal; }
+    // Trigger update via the hi thumb
+    if (hiEl) {
+      var evt = document.createEvent('Event');
+      evt.initEvent('input', true, true);
+      hiEl.dispatchEvent(evt);
+    }
+    // Then the lo thumb so fill is correct
+    if (loEl) {
+      var evt2 = document.createEvent('Event');
+      evt2.initEvent('input', true, true);
+      loEl.dispatchEvent(evt2);
+    }
+  };
+
+  // ─── Public helper: sync batch checkboxes from a comma string ───
+  window.syncBatchCheckboxes = function (csvStr) {
+    var row = document.getElementById('batchCheckboxRow');
+    if (!row) { return; }
+    var vals = (csvStr || '4').split(',').map(function (v) { return v.trim(); });
+    var pills = row.querySelectorAll('.skai-batch-pill');
+    for (var i = 0; i < pills.length; i++) {
+      var chk = pills[i].querySelector('input[type="checkbox"]');
+      if (!chk) { continue; }
+      var isActive = vals.indexOf(chk.value) !== -1;
+      chk.checked = isActive;
+      pills[i].classList.toggle('active', isActive);
+    }
+    var hidden = document.getElementById('batchSizes');
+    if (hidden) { hidden.value = vals.join(','); }
+  };
+
+  // ─── Initialise all sliders on DOMContentLoaded ───
+  function initAllSliders() {
+    // Neural Network group
+    initSlider({ id:'epochsRange',       min:5,    max:500,  step:5,       format:'range',  decimals:0 });
+    initSlider({ id:'dropoutRates',      min:0.05, max:0.50, step:0.05,    format:'list',   decimals:2 });
+    initSlider({ id:'learningRates',     min:0.0005,max:0.01,step:0.0005,  format:'list',   decimals:4 });
+    initSlider({ id:'hiddenLayers',      min:1,    max:6,    step:1,       format:'list',   decimals:0 });
+    initSlider({ id:'recencyDecayRates', min:0,    max:1,    step:0.25,    format:'list',   decimals:2 });
+    initSlider({ id:'skipAlphaValues',   min:0,    max:1,    step:0.25,    format:'list',   decimals:2 });
+    initBatchCheckboxes();
+
+    // SKAI Engine group
+    initSlider({ id:'skaiWindowSize',    min:100,  max:1500, step:50,      format:'single', decimals:0, single:true });
+    initSlider({ id:'skaiSkipWindow',    min:30,   max:600,  step:30,      format:'single', decimals:0, single:true });
+    initSlider({ id:'skipGamma',         min:0,    max:1,    step:0.1,     format:'range',  decimals:2 });
+    initSlider({ id:'skaiBlendSkipPct',  min:0,    max:100,  step:5,       format:'range',  decimals:0 });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAllSliders);
+  } else {
+    initAllSliders();
+  }
+
+})();
+
 [[/script]]
 [[/body]]
 [[/html]]
