@@ -3223,8 +3223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
       }
-    } // end skaiIdx
-    } // end mwIdx
+    } // end skaiWeightCombos if-block
 
     // NEW: Skip strength (SKIP_ALPHA) values
     var saInput = document.getElementById('skipAlphaValues');
@@ -4468,6 +4467,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (exportPanelEl) { exportPanelEl.style.display = 'block'; }
     if (qaPanelEl)     { qaPanelEl.style.display = 'block'; }
   }
+
+  } // end runSinglePass
 
   async function runWorkflow(){
     globalData = prepareData();
