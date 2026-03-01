@@ -1,0 +1,3737 @@
+{source}
+<?php
+defined('_JEXEC') or die('Restricted access');
+
+use Joomla\CMS\Factory;
+use Joomla\CMS\Session\Session;
+use Joomla\Database\DatabaseInterface;
+
+/* -----------------------------------------------------
+   1) Load Lotteries from the known absolute path
+   ----------------------------------------------------- */
+$jsonFile = '/home/oscara/web/lottoexpert.net/public_html/lotteries.json';
+
+// Debug check: does the file exist?
+if (!file_exists($jsonFile)) {
+    echo "<p style='color:red'>Error: File does not exist at $jsonFile</p>";
+    return;
+}
+
+// Attempt to read the file
+$jsonData = file_get_contents($jsonFile);
+if ($jsonData === false) {
+    echo "<p style='color:red'>Error: Could not read $jsonFile (check permissions)</p>";
+    return;
+}
+
+// Decode the JSON
+$data = json_decode($jsonData, true);
+if (json_last_error() !== JSON_ERROR_NONE) {
+    echo "<p style='color:red'>Error decoding JSON: " . json_last_error_msg() . "</p>";
+    return;
+}
+
+// Access the 'lotteries' array
+if (!isset($data['lotteries']) || !is_array($data['lotteries'])) {
+    echo "<p style='color:red'>Error: JSON does not have a valid 'lotteries' key.</p>";
+    return;
+}
+
+$lotteries = $data['lotteries'];
+
+/* -----------------------------------------------------
+   1b) SKAI Lab – handle "Save best settings" POST
+   ----------------------------------------------------- */
+$app   = Factory::getApplication();
+$input = $app->getInput();
+
+// Derive a lottery_id for saving settings.
+// Prefer gameId / game_id from URL; fall back to generic label.
+$lotteryId = (string) $input->getString(
+    'gameId',
+    $input->getString('game_id', '')
+);
+
+// Optional: you can later refine this to map from lotteryIndex → $lotteries[...] if needed.
+
+if ($input->getMethod() === 'POST' && $input->getString('save_skai_best_settings', '') !== '') {
+    // CSRF check (Joomla form token)
+    if (!Session::checkToken()) {
+        $app->enqueueMessage('Invalid session token while saving SKAI settings.', 'error');
+    } else {
+        $user = Factory::getUser();
+        if ($user->guest) {
+            $app->enqueueMessage('Please log in to save SKAI settings.', 'warning');
+        } else {
+            /** @var DatabaseInterface $db */
+            $db = Factory::getContainer()->get(DatabaseInterface::class);
+
+            // Setting label from form; fallback if empty
+            $settingName = trim((string) $input->getString('setting_name', ''));
+            if ($settingName === '') {
+                $settingName = 'SKAI Lab – ' . date('Y-m-d');
+            }
+
+            // Raw JSON string from hidden field; we will validate it
+            $paramsJson = (string) $input->getRaw('params', '');
+            $decoded    = json_decode($paramsJson, true);
+
+            if (!is_array($decoded)) {
+                $app->enqueueMessage('Could not save SKAI settings: invalid parameter payload.', 'error');
+            } else {
+                // Re-encode to ensure clean JSON
+                $cleanJson = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+                try {
+                    $query = $db->getQuery(true)
+                        ->insert($db->quoteName('#__user_saved_settings'))
+                        ->columns([
+                            $db->quoteName('user_id'),
+                            $db->quoteName('lottery_id'),
+                            $db->quoteName('source'),
+                            $db->quoteName('setting_name'),
+                            $db->quoteName('params'),
+                            $db->quoteName('created_at'),
+                        ])
+                        ->values(implode(',', [
+                            (int) $user->id,
+                            $db->quote($lotteryId),
+                            $db->quote('SKAI_LAB'), // source identifier for this lab
+                            $db->quote($settingName),
+                            $db->quote($cleanJson),
+                            $db->quote(date('Y-m-d H:i:s')),
+                        ]));
+
+                    $db->setQuery($query);
+                    $db->execute();
+
+                    $app->enqueueMessage('SKAI best settings saved for future use.', 'message');
+                } catch (\Throwable $e) {
+                    $app->enqueueMessage('Error saving SKAI settings: ' . $e->getMessage(), 'error');
+                }
+            }
+        }
+    }
+}
+
+/* -----------------------------------------------------
+   2) Normalize Lottery State Names & Labels
+   ----------------------------------------------------- */
+foreach ($lotteries as &$lot) {
+    // Normalize state field (handle alternative keys, trim spaces)
+    $stateKey = 'state';
+    if (!isset($lot[$stateKey])) {
+        foreach (['State', 'STATE', ' state', 'state '] as $altKey) {
+            if (isset($lot[$altKey])) {
+                $stateKey = $altKey;
+                break;
+            }
+        }
+    }
+    $stateValue = isset($lot[$stateKey]) ? trim($lot[$stateKey]) : '';
+    // Force Multi-State for specific game IDs regardless of existing state value
+    if (in_array($lot['gameId'], ['101','113','128','132','134','135'])) {
+        $stateValue = 'Multi-State';
+    } elseif ($stateValue === '') {
+        $stateValue = 'Unknown';
+    }
+    $lot['state'] = $stateValue;
+    $lot['label'] = $stateValue . ' - ' . $lot['label'];
+}
+unset($lot);
+
+
+// Optionally sort the lotteries by label
+usort($lotteries, function($a, $b) {
+    return strcmp($a['label'], $b['label']);
+});
+
+/* -----------------------------------------------------
+   3) Determine Which Lottery Was Chosen by GET param
+   ----------------------------------------------------- */
+$app   = Factory::getApplication();
+$input = $app->getInput();
+
+// Use Joomla input filtering and clamp to valid range
+$chosenLotteryIndex = $input->getInt('lotteryIndex', 0);
+if ($chosenLotteryIndex < 0 || $chosenLotteryIndex >= count($lotteries)) {
+    $chosenLotteryIndex = 0;
+}
+$chosen = $lotteries[$chosenLotteryIndex];
+
+/* -----------------------------------------------------
+   4) Fetch DB Data for the Chosen Lottery
+   ----------------------------------------------------- */
+$db = Factory::getDbo();
+$tableName = $chosen['tableName'];
+$gameId    = $chosen['gameId'];
+
+$query = $db->getQuery(true)
+    ->select('*')
+    ->from($db->quoteName($tableName))
+    ->where($db->quoteName('game_id') . ' = ' . $db->quote($gameId))
+    ->order($db->quoteName('draw_date') . ' ASC');
+$db->setQuery($query);
+$historicalResults = $db->loadObjectList();
+
+$draws = [];
+$lotteryName = $chosen['label'];
+if (!empty($historicalResults) && property_exists($historicalResults[0], 'game_name')) {
+    $lotteryName = $historicalResults[0]->game_name;
+}
+$pickSize = (int) $chosen['pickSize'];
+$hasExtra = ((int) $chosen['rangeExtra'] > 0);
+
+foreach ($historicalResults as $row) {
+    // Build exactly $pickSize “main” numbers:
+    $tempNums = [];
+    // Define the sequence of DB fields you might pull
+    $fields = ['first','second','third','fourth','fifth','sixth','seventh'];
+    for ($i = 0; $i < $pickSize; $i++) {
+        $f = $fields[$i] ?? null;
+        if ($f && isset($row->$f)) {
+            $tempNums[] = (int) $row->$f;
+        }
+    }
+    // If there’s an extra ball, it will be the next field after the mains
+    $powerball = null;
+    if ($hasExtra) {
+        $extraField = $fields[$pickSize] ?? null;
+        if ($extraField && isset($row->$extraField)) {
+            $powerball = (int) $row->$extraField;
+        }
+    }
+    $draws[] = [
+        'numbers'   => $tempNums,
+        'powerball' => $powerball,
+        'draw_date' => $row->draw_date
+    ];
+}
+
+$countQuery = $db->getQuery(true)
+    ->select('COUNT(*)')
+    ->from($db->quoteName($tableName))
+    ->where($db->quoteName('game_id') . ' = ' . $db->quote($gameId));
+$db->setQuery($countQuery);
+$totalEntriesInDB = (int)$db->loadResult();
+
+
+// === NEW helper to compute “Weighted Hit Score” per draw ===
+function weightedHitScore(array $actualMain, ?int $actualBonus,
+                          array $predMainTop20, ?int $predictedBonus,
+                          int $wMain, int $wBonus): int {
+    $mainHits = count(array_intersect($actualMain, $predMainTop20));
+    $bonusHit = ($actualBonus !== null && $predictedBonus === $actualBonus) ? 1 : 0;
+    return $wMain * $mainHits + $wBonus * $bonusHit;
+}
+?>  
+
+[[!DOCTYPE html]]
+[[html lang="en"]]
+[[head]]
+    [[meta charset="UTF-8"]]
+    [[title]]AI-Powered Lottery Analysis - <?php echo htmlspecialchars($lotteryName); ?>[[/title]]
+    [[!-- TensorFlow JS --]]
+    [[script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"]][[/script]]
+    [[!-- Chart.js + Datalabels --]]
+    [[script src="https://cdn.jsdelivr.net/npm/chart.js"]][[/script]]
+    [[script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"]][[/script]]
+     [[style type="text/css"]]
+      :root {
+        --skai-bg: #f3f4f6;
+        --skai-surface: #ffffff;
+        --skai-surface-muted: #f9fafb;
+        --skai-surface-soft: #eef2ff;
+        --skai-border-subtle: #e5e7eb;
+        --skai-border-strong: #d1d5db;
+        --skai-primary: #2563eb;
+        --skai-primary-soft: #dbeafe;
+        --skai-primary-strong: #1d4ed8;
+        --skai-accent: #6366f1;
+        --skai-danger: #dc2626;
+        --skai-success: #16a34a;
+        --skai-warning: #f97316;
+        --skai-text-main: #0f172a;
+        --skai-text-muted: #6b7280;
+        --skai-radius-lg: 20px;
+        --skai-radius-md: 12px;
+        --skai-radius-sm: 8px;
+        --skai-radius-pill: 999px;
+        --skai-shadow-lg: 0 20px 50px rgba(15, 23, 42, 0.14);
+        --skai-shadow-md: 0 14px 30px rgba(15, 23, 42, 0.10);
+        --skai-shadow-soft: 0 10px 25px rgba(15, 23, 42, 0.06);
+        --skai-font-ui: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      body {
+        background: var(--skai-bg);
+        color: var(--skai-text-main);
+        margin: 0;
+        padding: 0;
+        font-family: var(--skai-font-ui);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Shell / Page Container */
+      .ai-powerball-prediction {
+        width: min(1120px, 100% - 32px);
+        margin: 32px auto 48px auto;
+        padding: 28px 28px 36px;
+        background: radial-gradient(circle at top left, #eef2ff 0, #ffffff 40%, #f9fafb 100%);
+        border-radius: 26px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        box-shadow: var(--skai-shadow-lg);
+        text-align: left;
+      }
+
+      .ai-powerball-prediction h2 {
+        margin: 0 0 8px;
+        font-size: clamp(1.7rem, 1.4rem + 0.8vw, 2.1rem);
+        letter-spacing: -0.03em;
+        color: #020617;
+      }
+
+      .ai-powerball-prediction > p,
+      .ai-powerball-prediction > .skai-subtitle {
+        margin: 0 0 20px;
+        font-size: 0.95rem;
+        color: var(--skai-text-muted);
+        max-width: 640px;
+      }
+
+      /* Small “AI” pill tag */
+      .skai-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        border-radius: var(--skai-radius-pill);
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(37, 99, 235, 0.2);
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        color: var(--skai-primary-strong);
+        margin-bottom: 10px;
+      }
+
+      .skai-tag-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--skai-primary);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.30);
+      }
+
+      /* Top toolbar: lottery selection + meta */
+      form.controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 16px;
+        margin: 20px 0 8px;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: var(--skai-radius-md);
+        border: 1px solid var(--skai-border-subtle);
+        box-shadow: var(--skai-shadow-soft);
+      }
+
+      form.controls label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.8rem;
+        color: var(--skai-text-muted);
+        min-width: 220px;
+      }
+
+      form.controls select {
+        border-radius: 10px;
+        border: 1px solid var(--skai-border-subtle);
+        padding: 8px 10px;
+        font-size: 0.9rem;
+        background: #ffffff;
+        color: var(--skai-text-main);
+        outline: none;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      form.controls select:focus {
+        border-color: var(--skai-primary);
+        box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+      }
+
+      form.controls button {
+        margin-top: 0;
+      }
+
+      /* “Currently loaded” + quick stats strip */
+      #loadedLotteryMessage {
+        margin-top: 10px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--skai-text-main);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: var(--skai-radius-pill);
+        background: #e0f2fe;
+        border: 1px solid #bae6fd;
+      }
+
+      #loadedLotteryMessage .highlight {
+        margin: 0;
+      }
+
+      .skai-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 18px;
+        margin-top: 16px;
+        font-size: 0.85rem;
+        color: var(--skai-text-muted);
+      }
+
+      .skai-meta-chip {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: var(--skai-radius-pill);
+        background: rgba(15, 23, 42, 0.02);
+        border: 1px dashed var(--skai-border-subtle);
+      }
+
+      .skai-meta-chip strong {
+        color: var(--skai-text-main);
+      }
+
+      /* Live analysis info strip */
+      #analysisInfo {
+        margin: 16px 0 18px;
+        padding: 10px 12px;
+        border-radius: var(--skai-radius-md);
+        background: rgba(15, 23, 42, 0.02);
+        border: 1px solid var(--skai-border-subtle);
+        font-size: 0.9rem;
+        color: var(--skai-text-muted);
+      }
+
+      #analysisInfo span {
+        font-weight: 600;
+        color: var(--skai-text-main);
+      }
+
+      /* Progress bars */
+      #progressBarContainer, #epochProgressContainer {
+        width: 100%;
+        margin: 14px 0 4px;
+        background-color: #e5e7eb;
+        border-radius: var(--skai-radius-pill);
+        overflow: hidden;
+        display: none;
+        height: 10px;
+        position: relative;
+      }
+
+      #progressBar, #epochProgressBar {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, var(--skai-primary), var(--skai-accent));
+        transition: width 0.25s ease-out;
+      }
+
+      #progressText,
+      #epochProgressText {
+        text-align: left;
+        font-size: 0.8rem;
+        color: var(--skai-text-muted);
+        margin: 4px 0 10px;
+      }
+
+      /* Spinner */
+      #loadingSpinner {
+        display: none;
+        margin: 12px auto;
+        border: 4px solid #e5e7eb;
+        border-top: 4px solid var(--skai-primary);
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        animation: skai-spin 1s linear infinite;
+      }
+
+      @keyframes skai-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      #loadingMessage {
+        display: none;
+        margin-top: 8px;
+        font-size: 0.85rem;
+        color: var(--skai-text-muted);
+        text-align: center;
+      }
+
+      /* Layout: parameters & charts */
+      .skai-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr);
+        gap: 24px;
+        margin-top: 24px;
+      }
+
+      @media (max-width: 960px) {
+        .skai-layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .skai-panel {
+        background: rgba(255, 255, 255, 0.96);
+        border-radius: var(--skai-radius-lg);
+        border: 1px solid var(--skai-border-subtle);
+        box-shadow: var(--skai-shadow-soft);
+        padding: 18px 18px 20px;
+      }
+
+      .skai-panel h3 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+        letter-spacing: -0.01em;
+        color: #0f172a;
+      }
+
+      .skai-panel-subtitle {
+        font-size: 0.85rem;
+        color: var(--skai-text-muted);
+        margin-bottom: 12px;
+      }
+
+      /* Live parameters strip */
+      #liveAnalysisData {
+        font-size: 0.8rem;
+        color: var(--skai-text-muted);
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 6px 14px;
+        padding: 10px 12px;
+        margin: 6px 0 10px;
+        border-radius: var(--skai-radius-md);
+        background: #f9fafb;
+        border: 1px dashed var(--skai-border-subtle);
+      }
+
+      #liveAnalysisData strong {
+        color: var(--skai-text-main);
+      }
+
+      /* Parameter configuration (middle controls block) */
+      /* Top-level div.controls (parameter section) is directly after #liveAnalysisData */
+      #liveAnalysisData + div.controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+        padding: 18px 18px 12px;
+        border-radius: var(--skai-radius-lg);
+        background: linear-gradient(135deg, #eef2ff 0%, #f9fafb 50%, #ecfeff 100%);
+        border: 1px solid rgba(129, 140, 248, 0.35);
+        box-shadow: var(--skai-shadow-soft);
+      }
+
+      #liveAnalysisData + div.controls h2 {
+        grid-column: 1 / -1;
+        text-align: left;
+        font-size: 1.1rem;
+        margin-bottom: 4px;
+        color: #111827;
+      }
+
+      #liveAnalysisData + div.controls > div {
+        grid-column: 1 / -1;
+        text-align: left;
+        margin-bottom: 6px;
+      }
+
+      #liveAnalysisData + div.controls label {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: var(--skai-radius-md);
+        padding: 10px 10px 8px;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: var(--skai-text-muted);
+      }
+
+      #liveAnalysisData + div.controls input[type="text"],
+      #liveAnalysisData + div.controls select {
+        border-radius: 10px;
+        border: 1px solid var(--skai-border-subtle);
+        padding: 7px 10px;
+        font-size: 0.88rem;
+        background: #ffffff;
+        color: var(--skai-text-main);
+        outline: none;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+      }
+
+      #liveAnalysisData + div.controls input[type="text"]:focus,
+      #liveAnalysisData + div.controls select:focus {
+        border-color: var(--skai-primary);
+        box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+        background-color: #f9fafb;
+      }
+
+      #liveAnalysisData + div.controls small {
+        font-size: 0.78rem;
+        color: var(--skai-text-muted);
+      }
+
+      /* Scoring profile select is a bit wider */
+      #scoringProfile {
+        min-width: 180px;
+      }
+
+      /* Preset buttons row */
+      #liveAnalysisData + div.controls #presetFast,
+      #liveAnalysisData + div.controls #presetBalanced,
+      #liveAnalysisData + div.controls #presetDeep {
+        font-size: 0.82rem;
+        padding: 8px 14px;
+      }
+
+      /* Global button styling */
+      button,
+      .controls button {
+        background: linear-gradient(135deg, var(--skai-primary), var(--skai-accent));
+        color: #ffffff;
+        border: none;
+        padding: 9px 18px;
+        border-radius: var(--skai-radius-pill);
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: background 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.35);
+        white-space: nowrap;
+      }
+
+      button:hover,
+      .controls button:hover {
+        background: linear-gradient(135deg, var(--skai-primary-strong), var(--skai-accent));
+        transform: translateY(-1px);
+        box-shadow: 0 12px 26px rgba(37, 99, 235, 0.45);
+      }
+
+      button:active,
+      .controls button:active {
+        transform: translateY(0);
+        box-shadow: 0 6px 12px rgba(15, 23, 42, 0.35);
+      }
+
+      button:disabled,
+      .controls button:disabled {
+        background: #9ca3af;
+        box-shadow: none;
+        cursor: not-allowed;
+      }
+
+      button.selected {
+        background: linear-gradient(135deg, var(--skai-success), #22c55e);
+        box-shadow: 0 10px 20px rgba(22, 163, 74, 0.35);
+      }
+
+      /* Action bar buttons (after explanations) */
+      .explanations + div.controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+        justify-content: flex-start;
+      }
+
+      .explanations + div.controls button {
+        min-width: 160px;
+      }
+
+      /* Instructions box */
+      .instructions {
+        background: #fefce8;
+        border: 1px solid #facc15;
+        padding: 10px 12px;
+        border-radius: var(--skai-radius-md);
+        margin-top: 10px;
+        display: none;
+        font-size: 0.85rem;
+        color: #854d0e;
+      }
+
+      .instructions.visible {
+        display: block;
+      }
+
+      /* Explanations accordion */
+      .explanations {
+        text-align: left;
+        margin: 22px auto 10px;
+        width: 100%;
+      }
+
+      .explanations h2 {
+        font-size: 1.1rem;
+        color: #0f172a;
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--skai-border-subtle);
+      }
+
+      .explanations p {
+        margin-bottom: 10px;
+        line-height: 1.6;
+        font-size: 0.9rem;
+        color: var(--skai-text-muted);
+      }
+
+      .explanations details {
+        margin-bottom: 12px;
+        border: 1px solid var(--skai-border-subtle);
+        background-color: var(--skai-surface);
+        border-radius: var(--skai-radius-md);
+        padding: 8px 12px;
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+      }
+
+      .explanations details[open] {
+        border-color: var(--skai-primary-soft);
+        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.12);
+      }
+
+      .explanations details summary {
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        color: #111827;
+        list-style: none;
+      }
+
+      .explanations details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .explanations details summary::after {
+        content: "▾";
+        font-size: 0.85rem;
+        float: right;
+        color: var(--skai-text-muted);
+        transition: transform 0.18s ease;
+      }
+
+      .explanations details[open] summary::after {
+        transform: rotate(180deg);
+      }
+
+      .explanations .explanation-content {
+        margin-top: 8px;
+        padding-left: 2px;
+        font-size: 0.86rem;
+      }
+
+      .explanations ul {
+        margin-left: 18px;
+        list-style-type: disc;
+        padding-left: 0;
+      }
+
+      .explanations ul ul {
+        list-style-type: circle;
+        margin-left: 16px;
+      }
+
+      /* Chart cards */
+      .chart-item {
+        width: 100%;
+        margin-bottom: 28px;
+        text-align: left;
+        position: relative;
+      }
+
+      .chart-item h3 {
+        margin: 0 0 8px;
+        font-size: 0.98rem;
+        color: #0f172a;
+      }
+
+      .chart-card-inner {
+        background: #ffffff;
+        border-radius: var(--skai-radius-lg);
+        border: 1px solid var(--skai-border-subtle);
+        box-shadow: var(--skai-shadow-soft);
+        padding: 12px 14px 16px;
+      }
+
+      #matchDistChart,
+      #lossChart {
+        background: #ffffff;
+        width: 100%;
+        height: 280px;
+        margin: 4px auto 0;
+      }
+
+      .chart-explanation {
+        margin: 10px auto 0;
+        font-size: 0.82rem;
+        color: var(--skai-text-muted);
+        background: #f9fafb;
+        border: 1px solid var(--skai-border-subtle);
+        padding: 8px 10px;
+        border-radius: var(--skai-radius-md);
+        width: 100%;
+        text-align: left;
+      }
+
+      /* Tables */
+      .top-predictions-table,
+      .top-settings-table {
+        width: 100%;
+        margin: 14px auto 0;
+        border-collapse: collapse;
+        background: #ffffff;
+        color: var(--skai-text-main);
+        font-size: 0.75rem; /* was 0.82rem */
+        border-radius: var(--skai-radius-lg);
+        overflow: hidden;
+        box-shadow: var(--skai-shadow-soft);
+      }
+
+      .top-predictions-table th,
+      .top-predictions-table td,
+      .top-settings-table th,
+      .top-settings-table td {
+        border: 1px solid var(--skai-border-subtle);
+        padding: 5px 6px; /* slightly tighter */
+        text-align: center;
+        vertical-align: middle;
+      }
+
+      .top-predictions-table th,
+      .top-settings-table th {
+        background: linear-gradient(135deg, #eff6ff, #e0f2fe);
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.72rem; /* was 0.8rem */
+        color: #111827;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+
+      /* Extra tightening on smaller screens */
+      @media (max-width: 768px) {
+        .top-predictions-table,
+        .top-settings-table {
+          font-size: 0.7rem;
+        }
+
+        .top-predictions-table th,
+        .top-settings-table th {
+          font-size: 0.68rem;
+        }
+      }
+
+      .top-predictions-table tbody tr:nth-child(even),
+      .top-settings-table tbody tr:nth-child(even) {
+        background: #f9fafb;
+      }
+
+      .top-predictions-table tbody tr:hover,
+      .top-settings-table tbody tr:hover {
+        background: #eef2ff;
+      }
+
+      /* NEW: scrollable wrapper so wide tables stay inside the card */
+      .skai-table-wrapper {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 8px auto 18px;
+      }
+
+      /* Best run & summary */
+      #currentBestRunLabel {
+        margin-top: 12px;
+        font-size: 0.85rem;
+        color: var(--skai-warning);
+        font-style: italic;
+        display: none;
+      }
+
+      #bestSettingsSummary {
+        background: #f9fafb;
+        border: 1px solid var(--skai-border-subtle);
+        padding: 12px 14px;
+        margin: 14px 0 10px;
+        width: 100%;
+        border-radius: var(--skai-radius-md);
+        color: var(--skai-text-main);
+        display: none;
+      }
+
+      #bestSettingsSummary h4 {
+        margin: 0 0 4px;
+        font-size: 0.92rem;
+      }
+
+      #bestSettingsText {
+        margin: 0;
+        font-size: 0.82rem;
+        color: var(--skai-text-muted);
+      }
+
+      /* AI summary box */
+      #liveSummary.summary-box {
+        padding: 14px 16px;
+        border-radius: var(--skai-radius-lg);
+        border: 1px solid var(--skai-border-subtle);
+        background: #fefce8;
+        color: #713f12;
+        font-size: 0.86rem;
+      }
+
+      #liveSummary h3 {
+        margin: 0 0 6px;
+        font-size: 0.95rem;
+      }
+
+      #liveSummary p {
+        margin: 0;
+      }
+
+      /* Highlight pills */
+      .highlight {
+        background-color: #f97316;
+        color: #111827;
+        padding: 2px 7px;
+        border-radius: var(--skai-radius-pill);
+        font-weight: 600;
+        font-size: 0.8rem;
+      }
+
+      /* Utility: small caps, short labels inside markup from JS */
+      em, [[em]] {
+        font-style: italic;
+      }
+
+      /* Responsive tweaks */
+      @media (max-width: 768px) {
+        .ai-powerball-prediction {
+          padding: 20px 16px 26px;
+          border-radius: 20px;
+        }
+
+        form.controls {
+          padding: 12px 12px;
+        }
+
+        #liveAnalysisData + div.controls {
+          padding: 14px 12px 10px;
+        }
+
+        .top-predictions-table,
+        .top-settings-table {
+          font-size: 0.78rem;
+        }
+      }
+      
+    /* SKAI Lab – keep summary tables inside their cards */
+  .settings-card table {
+    width: 100%;
+    table-layout: fixed;           /* force columns to share width */
+    border-collapse: collapse;
+  }
+
+  .settings-card th,
+  .settings-card td {
+    padding: 4px 6px;
+    font-size: 0.78rem;            /* slightly smaller to fit in columns */
+    white-space: normal;           /* allow wrapping */
+    word-wrap: break-word;         /* wrap long content instead of overflowing */
+    word-break: break-word;
+    vertical-align: top;
+  }
+
+  .settings-card thead th {
+    font-weight: 600;
+  }
+
+  .settings-card {
+    overflow-x: hidden;            /* prevent horizontal spill out of the column */
+  }
+    
+  /* === SKAI Lab: constrain result tables to card column === */
+
+  /* Keep tables inside the card; no page-level horizontal scroll */
+  #topSettings,
+  #topPredictions {
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  #topSettings table,
+  #topPredictions table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  #topSettings th,
+  #topSettings td,
+  #topPredictions th,
+  #topPredictions td {
+    padding: 6px 8px;
+    font-size: 0.78rem;
+    line-height: 1.25;
+    white-space: normal;       /* allow wrapping within a cell */
+    word-break: break-word;    /* wrap long content like Predicted lists */
+    vertical-align: top;
+  }
+
+  #topSettings th,
+  #topPredictions th {
+    font-weight: 600;
+    text-align: left;
+  }
+
+  /* Compact view: Best Settings
+     Keep only the core knobs so the table fits nicely in one column.
+     Visible columns:
+       1 Epochs
+       2 Batch
+       3 Dropout
+       4 LR
+       5 ActFn
+       6 Layers
+       7 Recency Decay
+     All performance + SKAI-detail columns are summarized in "Quick Highlights". */
+  #topSettings th:nth-child(n+8),
+  #topSettings td:nth-child(n+8) {
+    display: none;
+  }
+
+  /* Compact view: Prediction Settings
+     Keep columns 1–10 (through Avg Matches) and hide the rest to avoid overflow.
+     Hidden columns still exist in the DOM, but are not displayed. */
+  #topPredictions th:nth-child(n+11),
+  #topPredictions td:nth-child(n+11) {
+    display: none;
+  }
+
+  @media (max-width: 900px) {
+    #topSettings th,
+    #topSettings td,
+    #topPredictions th,
+    #topPredictions td {
+      font-size: 0.74rem;
+      padding: 4px 6px;
+    }
+  }
+      
+    [[/style]]
+
+
+[[/head]]
+[[body]]
+[[div class="ai-powerball-prediction"]]
+
+    [[div class="skai-tag"]]
+      [[span class="skai-tag-dot"]][[/span]]
+      SKAI Settings Lab
+    [[/div]]
+
+    [[h2]]
+      SKAI Lottery Settings Lab – 
+      [[span class="highlight"]]<?php echo htmlspecialchars($lotteryName); ?>[[/span]]
+    [[/h2]]
+
+    [[p class="skai-subtitle"]]
+      Use this lab to discover the strongest training settings on real draw history,
+      then transfer those settings into your live SKAI AI and Original AI prediction pages.
+    [[/p]]
+
+    <!-- Lottery Dropdown Form -->
+    [[form method="get" class="controls"]]
+        [[label]]Select a Lottery:
+            [[select name="lotteryIndex"]]
+                <?php
+                foreach($lotteries as $idx => $lot) {
+                    $sel = ($idx === $chosenLotteryIndex) ? 'selected' : '';
+                    echo '[[option value="'.$idx.'" '.$sel.']]'.htmlspecialchars($lot['label']).'[[/option]]';
+                }
+                ?>
+            [[/select]]
+        [[/label]]
+        [[button type="submit"]][[strong]]Step 1 – Load Lottery into SKAI[[/strong]][[/button]]
+    [[/form]]
+
+    <!-- New: Display which lottery is loaded -->
+    [[div id="loadedLotteryMessage"]]
+        Currently Loaded Lottery: [[span class="highlight"]]<?php echo htmlspecialchars($lotteryName); ?>[[/span]]
+    [[/div]]
+
+    <?php
+      $latestDrawDate = 'Unknown';
+      $latestDrawNums = 'No data';
+      if (!empty($draws)) {
+        $latest = end($draws);
+        $latestDrawDate = $latest['draw_date'];
+        $arr = $latest['numbers'];
+        if ($latest['powerball']) {
+          $arr[] = $latest['powerball'];
+        }
+        $latestDrawNums = implode(', ', $arr);
+      }
+    ?>
+
+    [[div class="skai-meta-row"]]
+      [[div class="skai-meta-chip"]]
+        [[span class="skai-meta-label"]]Latest draw date[[/span]]
+        [[span class="skai-meta-value"]]
+          <?php echo htmlspecialchars($latestDrawDate); ?>
+        [[/span]]
+      [[/div]]
+
+      [[div class="skai-meta-chip"]]
+        [[span class="skai-meta-label"]]Latest draw numbers[[/span]]
+        [[span class="skai-meta-value" id="drawNumbers"]]
+          <?php echo htmlspecialchars($latestDrawNums); ?>
+        [[/span]]
+      [[/div]]
+
+      [[div class="skai-meta-chip"]]
+        [[span class="skai-meta-label"]]Rows in this lottery[[/span]]
+        [[span class="skai-meta-value"]]
+          <?php echo (int) $totalEntriesInDB; ?>
+        [[/span]]
+      [[/div]]
+    [[/div]]
+
+    [[div id="analysisInfo" class="skai-meta-row"]]
+      [[div class="skai-meta-chip"]]
+        [[span class="skai-meta-label"]]Lab runs completed[[/span]]
+        [[span class="skai-meta-value"]]
+          [[span id="totalAnalyses"]]0[[/span]] / [[span id="totalPossibleAnalyses"]]0[[/span]]
+        [[/span]]
+      [[/div]]
+
+      [[div class="skai-meta-chip"]]
+        [[span class="skai-meta-label"]]Estimated completion[[/span]]
+        [[span class="skai-meta-value"]]
+          [[span id="estimatedTime"]]--[[/span]]
+        [[/span]]
+      [[/div]]
+    [[/div]]
+
+    [[div id="progressBarContainer"]][[div id="progressBar"]][[/div]][[/div]]
+    [[div id="progressText"]][[/div]]
+
+    [[div id="epochProgressContainer"]][[div id="epochProgressBar"]][[/div]][[/div]]
+    [[div id="epochProgressText"]][[/div]]
+
+    [[div class="skai-layout"]]
+
+      [[div class="skai-panel"]]
+        [[h3]]Settings & Training Context[[/h3]]
+        [[p class="skai-panel-subtitle"]]
+          Review what SKAI is currently training, then define the ranges this lab will explore
+          to find strong settings you can reuse in your live SKAI AI and Original AI tools.
+        [[/p]]
+
+        [[div id="liveAnalysisData"]]
+          [[strong]]Current Analysis Parameters:[[/strong]][[br]]
+          Epochs: [[span id="currentEpochs"]]--[[/span]],
+          Batch Size: [[span id="currentBatchSize"]]--[[/span]],
+          Dropout Rate: [[span id="currentDropoutRate"]]--[[/span]],
+          Learning Rate: [[span id="currentLearningRate"]]--[[/span]],
+          Activation Function: [[span id="currentActivationFunction"]]--[[/span]],
+          Hidden Layers: [[span id="currentHiddenLayers"]]--[[/span]],
+          Recency Decay: [[span id="currentRecencyDecay"]]--[[/span]],
+          Skip Strength: [[span id="currentSkipAlpha"]]--[[/span]]
+        [[/div]]
+
+        [[div class="controls"]]
+          [[h2 style="text-align: center; margin-bottom: 20px;"]]Parameter Configuration[[/h2]]
+
+          <!-- NEW: Preset Buttons -->
+          [[div style="text-align:center; width:100%; margin-bottom:15px;"]]
+            [[button type="button" id="presetFast"]]Fast Test[[/button]]
+            [[button type="button" id="presetBalanced"]]Balanced (Recommended)[[/button]]
+            [[button type="button" id="presetDeep"]]Deep Search[[/button]]
+          [[/div]]
+          [[label]]
+            Epoch Range:
+            [[input type="text" id="epochsRange" value="70-130" placeholder="e.g., 75-80"]]
+            [[small]]Enter a single value (e.g., 10) or a range (e.g., 70-100).[[/small]]
+            [[small]]Parameter Range 5 -1000).[[/small]]
+          [[/label]]
+          [[label]]
+            Batch Sizes:
+            [[input type="text" id="batchSizes" value="4" placeholder="e.g., 4, 8, 16"]]
+            [[small]]Enter one or more values (comma-separated) like 4, 6, 8, 12, 16, 32, 64[[/small]]
+          [[/label]]
+          [[label]]
+            Dropout Rates:
+            [[input type="text" id="dropoutRates" value="0.2" placeholder="e.g., 0.1, 0.2, 0.3, 0.4, 0.5"]]
+            [[small]]Enter a percentage or range (e.g., 0.1-0.5).[[/small]]
+          [[/label]]
+          [[label]]
+            Learning Rates:
+            [[input type="text" id="learningRates" value="0.002" placeholder="e.g., 0.001, 0.002, 0.003  etc"]]
+            [[small]]Enter one or more values (comma-separated) like 0.01, 0.001.[[/small]]
+          [[/label]]
+          [[label]]
+            Activation Functions:
+            [[select id="activationFunctions" multiple]]
+              [[option value="tanh" selected]]Tanh[[/option]]
+              [[option value="relu"]]ReLU[[/option]]
+              [[option value="sigmoid"]]Sigmoid[[/option]]
+            [[/select]]
+            [[small]]Select one or more activation functions to use (Ctrl+Click or Shift+Click to select multiple).[[/small]]
+          [[/label]]
+          [[label]]
+            Hidden Layers:
+            [[input type="text" id="hiddenLayers" value="2" placeholder="e.g., 1, 2, 3, 4, 5"]]
+            [[small]]Enter a single value or range (e.g., 1-5).[[/small]]
+          [[/label]]
+          [[label]]
+            Recency Decay:
+            [[input
+              type="text"
+              id="recencyDecayRates"
+              value="1"
+              placeholder="e.g., 0.5, 0.75, 1"
+            ]]
+            [[small]]Enter one or more decay values (comma-separated), e.g. 0.5, 0.75, 1.[[/small]]
+          [[/label]]
+
+          [[label]]
+            Main Weights (freq, skip, hist):
+            [[input
+              type="text"
+              id="mainWeightProfiles"
+              value="40,40,20"
+              placeholder="e.g., 40,40,20 | 50,30,20"
+            ]]
+            [[small]]
+              Enter one or more weight triplets as
+              freq,skip,hist separated by a vertical bar,
+              for example: 40,40,20 | 50,30,20.
+              Values are treated as percentages and will be normalized.
+            [[/small]]
+          [[/label]]
+
+          [[label]]
+            Skip Strength (SKIP_ALPHA):
+            [[input
+              type="text"
+              id="skipAlphaValues"
+              value="0.5"
+              placeholder="e.g., 0.2, 0.5, 1"
+            ]]
+            [[small]]Controls how strongly skip features influence the model (higher = more weight on skip patterns).[[/small]]
+          [[/label]]
+
+          [[label]]
+            Scoring Profile:
+            [[select id="scoringProfile"]]
+              [[option value="balanced" selected]]Balanced – hits & stability[[/option]]
+              [[option value="steady"]]Steady – more stability[[/option]]
+              [[option value="aggressive"]]Aggressive – chase bigger wins[[/option]]
+            [[/select]]
+            [[small]]Choose how “best settings” are evaluated: more stable, more aggressive, or a balanced mix.[[/small]]
+          [[/label]]
+
+          [[p style="font-size:0.9rem; font-weight:500; color:#374151; margin:16px 0 4px; text-align:center;"]]
+            Step 1: choose the SKAI engine profile you want to explore (weights, blend, sampling and Top-N).
+            Step 2: pick a Run Mode.
+            Step 3: run the lab – it will test combinations around your choices and surface the strongest-performing profiles for this lottery.
+          [[/p]]
+
+          [[h2 style="text-align: center; margin: 12px 0 8px;"]]
+            SKAI Engine Settings (Weights & Blend)
+          [[/h2]]
+
+          [[p style="font-size:0.82rem; color:#6b7280; margin:0 0 10px;"]]
+            These settings describe how SKAI weights history, skip behaviour and AI output when you later apply them on LottoExpert.net.
+            Think of the values you enter as the [[strong]]center of a search region[[/strong]]: the lab automatically explores
+            stronger or softer variations around these settings (wider or tighter depending on the Run Mode).
+            You may keep the suggested defaults or enter entirely custom profiles to explore different “SKAI personalities.”
+          [[/p]]
+
+          [[p style="font-size:0.78rem; color:#4b5563; margin:0 0 12px;"]]
+            [[strong]]Tip:[[/strong]] Run Mode changes only the [[em]]shape of the search[[/em]] around the values you enter:
+            Balanced = moderate exploration, Conservative = narrow & stability-focused, Exploratory = wider & more aggressive.
+            The lab never overwrites your entries — it only searches around them.
+          [[/p]]
+
+          [[p style="font-size:0.9rem; font-weight:500; color:#374151; margin:16px 0 4px; text-align:center;"]]
+            Step 1: choose the SKAI engine profile you want to explore (weights, blend, sampling and Top-N).
+            Step 2: pick a Run Mode.
+            Step 3: run the lab – it will test combinations around your choices and surface the strongest-performing profiles for this lottery.
+          [[/p]]
+
+
+          [[div style="text-align:center; margin:8px 0 16px;"]]
+            [[button type="button" id="presetBalancedSkai" style="margin:4px;" class="btn btn-primary"]]
+              Balanced Starter
+            [[/button]]
+            [[button type="button" id="presetConservativeSkai" style="margin:4px;" class="btn btn-secondary"]]
+              Conservative Tight
+            [[/button]]
+            [[button type="button" id="presetExploratorySkai" style="margin:4px;" class="btn btn-accent"]]
+              Exploratory Aggressive
+            [[/button]]
+          [[/div]]
+
+          [[label]]
+            SKAI Window Size (draws):
+            [[input type="text" id="skaiWindowSize" value="600" placeholder="e.g., 600"]]
+            [[small]]How many past draws SKAI considers in its main analysis window (e.g., 400–800 for Powerball-style games).[[/small]]
+          [[/label]]
+
+          [[label]]
+            Main-ball weights (Frequency / Skip / History %):
+            [[input type="text" id="skaiFreqWeight" value="40" placeholder="Freq e.g., 40"]]
+            [[input type="text" id="skaiSkipWeight" value="40" placeholder="Skip e.g., 40"]]
+            [[input type="text" id="skaiHistWeight" value="20" placeholder="Hist e.g., 20"]]
+            [[small]]
+              Recommended bands:
+              Balanced ≈ 30–50 / 30–50 / 10–30,
+              Conservative ≈ 60–80 / 10–30 / 10–30,
+              Exploratory ≈ 30–40 / 40–60 / 0–20.
+              Values do not need to sum exactly to 100; the lab normalizes them internally.
+            [[/small]]
+          [[/label]]
+
+          [[label]]
+            Extra-ball weights (Frequency / Skip / History %):
+            [[input type="text" id="skaiPbFreqWeight" value="40" placeholder="e.g., 40"]]
+            [[input type="text" id="skaiPbSkipWeight" value="40" placeholder="e.g., 40"]]
+            [[input type="text" id="skaiPbHistWeight" value="20" placeholder="e.g., 20"]]
+            [[small]]
+              Same idea as main weights, but for the extra ball. Typical ranges mirror the main-ball weights above.
+            [[/small]]
+          [[/label]]
+
+          [[label]]
+[[label]]SKAI Blend (Skip % / AI %):[[/label]]
+[[input type="text"
+        id="skaiBlendSkipPct"
+        name="skaiBlendSkipPct"
+        value="100"
+        placeholder="e.g. 50 or 10-60"]]
+[[input type="number"
+        id="skaiBlendAiPct"
+        name="skaiBlendAiPct"
+        value="0"]]
+            [[small]]
+How strongly SKAI leans on skip-driven signals versus pure AI estimates.
+  You can enter either:
+  [[br]]• a single value (for example [[strong]]50[[/strong]] = 50% Skip / 50% AI), or
+  [[br]]• a range like [[strong]]10-60[[/strong]] to let the lab test 10%, 12%, 14%, …, 60% Skip in steps of 2.
+  If you leave the AI % box at 0, SKAI will automatically use [[em]]100 − Skip %[[/em]] for each test.
+  Balanced mode usually explores bands around 40–60% Skip; Conservative leans more to AI, Exploratory leans more to Skip.
+
+            [[/small]]
+          [[/label]]
+
+          [[label]]
+            Exploration behaviour:
+            [[input type="text" id="skaiSamplingTemperature" value="0.8" placeholder="Temperature, e.g., 0.8"]]
+            [[input type="text" id="skaiDiversityPenalty" value="0.1" placeholder="Diversity penalty, e.g., 0.1"]]
+            [[input type="text" id="skaiGapScale" value="1.0" placeholder="Gap scale, e.g., 1.0"]]
+            [[small]]
+              Controls how concentrated or exploratory SKAI’s sampling is when it builds combos.
+              Conservative mode keeps these closer to 0.5 / 0.0 / 1.0; Exploratory mode allows higher values for
+              more varied picks.
+            [[/small]]
+          [[/label]]
+
+          [[label]]
+            Output format (Top N):
+            [[input type="text" id="skaiTopNNumbers" value="20" placeholder="Top N numbers, e.g., 20"]]
+            [[small]]How many core numbers you intend SKAI to surface on your live tools. Common ranges: 15–25 carefully chosen numbers.[[/small]]
+          [[/label]]
+        [[/div]]
+
+        <!-- New: Div for current best run info -->
+        [[div id="currentBestRunLabel" style="display:none;"]][[/div]]
+
+        [[div class="explanations"]]
+          [[h2]]Parameter Explanations[[/h2]]
+          [[p]]Understanding these parameters is crucial for tailoring the model to your needs. Expand each section to learn more.[[/p]]
+
+          [[!-- Epoch Range Explanation --]]
+          [[details]]
+            [[summary]][[strong]]Epoch Range[[/strong]][[/summary]]
+           [[p]]
+The epoch range determines how many times the entire dataset is passed through the model during the training process. Training a model involves adjusting its internal parameters (weights) to learn patterns from data and make accurate predictions. Each time the model sees the dataset and updates its parameters, it completes one "epoch."
+[[/p]]
+[[ul]]
+  [[li]]
+    [[strong]]What is an epoch?[[/strong]] An epoch represents one full pass of the training dataset through the model. During each pass:
+    [[ul]]
+      [[li]]The model processes the data, calculates predictions, and compares them with the correct answers.[[/li]]
+      [[li]]It uses the differences (errors) to adjust its parameters, improving its ability to predict correctly on future data.[[/li]]
+    [[/ul]]
+  [[/li]]
+...
+  [[/details]]
+
+          [[!-- NEW: Aggregate Performance & Consistency Explanation --]]
+          [[details]]
+            [[summary]][[strong]]Aggregate Performance & Consistency[[/strong]][[/summary]]
+            [[p]]
+              This simulation now tracks not only the average performance metrics (such as F1 score and average matches) but also their consistency across multiple runs (using k-fold cross-validation). In particular, we compute the standard deviation of the F1 score for each hyperparameter setting. A lower standard deviation indicates that the setting performs reliably across different subsets of data. Use this information to favor settings that not only have high average scores but are also consistent.
+            [[/p]]
+          [[/details]]
+        [[/div]]
+
+        [[div class="controls"]]
+          [[button id="startPrediction"]][[strong]]Step 2 Search for Best Parameters[[/strong]][[/button]]
+          [[button id="pauseButton" disabled]]Pause[[/button]]
+          [[button id="resetButton"]]Reset[[/button]]
+        [[/div]]
+
+        [[div id="loadingSpinner"]][[/div]]
+        [[div id="loadingMessage" style="display:none; margin-top:10px;"]]
+          Initializing calculations... Please wait.
+        [[/div]]
+      [[/div]]
+
+      [[div class="skai-panel"]]
+        [[h3]]Performance & Best Settings[[/h3]]
+        [[p class="skai-panel-subtitle"]]
+          Monitor match distributions, training vs. validation loss, and the highest-scoring
+          settings this lab discovers for you.
+        [[/p]]
+
+        [[div class="chart-item"]]
+          [[h3]]Matches Predicted (Live per Epoch)[[/h3]]
+          [[div class="chart-card-inner"]]
+            [[canvas id="matchDistChart"]][[/canvas]]
+          [[/div]]
+          [[div class="chart-explanation"]]
+            We show how many draws got 0..5 matches out of the top 20 main numbers each epoch.
+          [[/div]]
+        [[/div]]
+
+        [[!-- LOSS CHART with Explanation --]]
+        [[div class="chart-item"]]
+          [[h3]]Training vs. Validation Loss per Epoch[[/h3]]
+          [[div class="chart-card-inner"]]
+            [[canvas id="lossChart"]][[/canvas]]
+          [[/div]]
+          [[div class="chart-explanation"]]
+           [[p]]
+              [[strong]]Training vs. Validation Loss:[[/strong]] The training loss measures how well the model is fitting the training data, while the validation loss shows how well the model generalizes to unseen data. Ideally, both losses decrease as training progresses. If the training loss continues to drop but the validation loss starts rising, it is a sign of overfitting. This chart provides real-time insight into the model’s learning behavior, helping you determine if and when adjustments (such as early stopping or increased regularization) are needed. Note that the moment the simulation detects any of these situations it will act automatically to make the adjustments and continue.
+            [[/p]]
+          [[/div]]
+        [[/div]]
+
+        [[div id="liveSummary" class="summary-box" style="display:none; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 8px; margin-bottom: 20px;"]]
+          [[h3]]AI Summary[[/h3]]
+          [[p id="summaryText"]]
+            <!-- The summary text is updated live in the script below. -->
+          [[/p]]
+        [[/div]]
+
+[[div id="topSettings" style="display:none;"]]
+  [[h3]]Best Settings[[/h3]]
+
+  [[div class="skai-table-wrapper" aria-label="Best settings table for the top SKAI lab run."]]
+    [[table class="top-settings-table" id="topSettingsTable"]]
+      [[thead]]
+        [[tr]]
+          [[th]]Epochs[[/th]]
+          [[th]]Batch[[/th]]
+          [[th]]Dropout[[/th]]
+          [[th]]LR[[/th]]
+          [[th]]ActFn[[/th]]
+          [[th]]Layers[[/th]]
+          [[th]]Recency[[/th]]
+        [[/tr]]
+      [[/thead]]
+      [[tbody id="topSettingsBody"]][[/tbody]]
+    [[/table]]
+  [[/div]]
+[[/div]]
+
+
+[[div id="bestSettingsSummary" style="display:none;"]]
+  [[div id="bestSettingsText"
+        style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;
+               padding:16px 18px;box-shadow:0 2px 4px rgba(0,0,0,0.03);
+               font-size:0.9rem;line-height:1.5;"]]
+[[h4 style="margin:0 0 6px 0;"]]Best Settings[[/h4]]
+
+[[p style="margin:0 0 8px 0;font-size:0.78rem;color:#4b5563;"]]
+  [[strong]]Why this may differ from the highest-hit row:[[/strong]]
+  SKAI selects the [[em]]best overall configuration[[/em]] using a combined score
+  that includes matches, stability, and volatility. Sometimes a run with more hits
+  is too inconsistent, so a steadier setting ranks higher here.
+[[/p]]
+
+[[p style="margin:0;font-size:0.8rem;color:#6b7280;"]]
+  Currently no best settings. Once the lab finishes a run, the top-performing
+  profile will be summarized here with clear performance stats and SKAI weights.
+[[/p]]
+
+  [[/div]]
+[[/div]]
+
+[[div class="settings-save-panel" style="margin-top:12px; padding:10px; border-top:1px solid #e5e7eb;"]]
+  [[form method="post" id="skaiSaveSettingsForm" class="skai-save-form"]]
+    <?php echo \Joomla\CMS\HTML\HTMLHelper::_('form.token'); ?>
+    [[input type="hidden" name="save_skai_best_settings" value="1"]]
+
+    [[div class="save-row" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;"]]
+      [[label style="flex:1 1 260px; font-size:0.86rem; color:#374151;"]]
+        Label for this settings profile:
+        [[input type="text"
+                name="setting_name"
+                id="skaiSettingName"
+                value=""
+                placeholder="e.g., Powerball – SKAI Balanced Tail Hunter"]]
+      [[/label]]
+
+      [[input type="hidden" name="params" id="skaiSettingsParams" value=""]]
+
+      [[button type="submit"
+               class="btn-primary"
+               style="flex:0 0 auto; padding:6px 14px; font-size:0.86rem;"]]
+        Save these SKAI settings
+      [[/button]]
+    [[/div]]
+
+    [[p style="font-size:0.75rem; color:#6b7280; margin-top:6px;"]]
+      The best settings from this run will be saved to your
+      [[strong]]MyLottoExpert[[/strong]] dashboard under SKAI / AI settings. You can reuse them
+      later in live prediction tools.
+    [[/p]]
+  [[/form]]
+[[/div]]
+
+
+[[div id="topPredictions" style="display:none;"]]
+  [[h3]]Prediction Settings[[/h3]]
+  [[div class="skai-table-wrapper" aria-label="Prediction settings table. Scroll horizontally to see all columns."]]
+    [[table class="top-predictions-table" id="topPredictionsTable" data-sortcol="-1" data-sortdir=""]]
+      [[thead]]
+        [[tr]]
+          [[th onclick="sortTable('topPredictionsTable',0)"]]Epochs[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',1)"]]Batch[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',2)"]]Dropout[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',3)"]]LR[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',4)"]]ActFn[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',5)"]]Layers[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',6)"]]Recency Decay[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',7)"]]Actual[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',8)"]]Predicted[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',9)"]]Avg Matches[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',10)"]]Avg Rank[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',11)"]]F1[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',12)"]]Matches[[/th]]
+          [[th onclick="sortTable('topPredictionsTable',13)"]]ExtraBall[[/th]]
+        [[/tr]]
+      [[/thead]]
+      [[tbody id="topPredictionsBody"]][[/tbody]]
+    [[/table]]
+  [[/div]]
+[[/div]]
+
+
+
+[[script]]
+document.addEventListener('DOMContentLoaded', () => {
+    // Scroll the loading container into center view on start
+setTimeout(() => {
+  document.getElementById('loading')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center'
+  });
+}, 100); // slight delay to ensure DOM has time to show the element
+
+  const button = document.querySelector('button');
+  if (button) { // safety: only attach if a button exists
+    button.addEventListener('click', function () {
+      this.classList.add('selected');
+    });
+  }
+});
+
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.instructions-toggle').forEach(button => {
+    button.addEventListener('click', function () {
+      const instructions = this.nextElementSibling;
+      instructions.classList.toggle('visible');
+    });
+  });
+});
+
+Chart.register(ChartDataLabels);
+
+// 1) Table Sort
+function sortTable(tableId, columnIndex){
+  const table = document.getElementById(tableId);
+  if(!table)return;
+  const tbody = table.querySelector("tbody");
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+  let asc = (table.getAttribute("data-sortcol") == columnIndex && table.getAttribute("data-sortdir")=="asc") ? false : true;
+  rows.sort((a, b) => {
+    const aText = a.cells[columnIndex].innerText.trim();
+    const bText = b.cells[columnIndex].innerText.trim();
+    const aNum = parseFloat(aText.replace(/[^\d.-]/g,''));
+    const bNum = parseFloat(bText.replace(/[^\d.-]/g,''));
+    if(!isNaN(aNum) && !isNaN(bNum))
+      return asc ? aNum - bNum : bNum - aNum;
+    else
+      return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+  });
+  rows.forEach(r => tbody.removeChild(r));
+  rows.forEach(r => tbody.appendChild(r));
+  table.setAttribute("data-sortcol", columnIndex);
+  table.setAttribute("data-sortdir", asc ? "asc" : "desc");
+}
+
+// 2) customBinaryCrossentropy + reduceLROnPlateau
+function customBinaryCrossentropy(yTrue, yPred){
+  const EPS = 1e-7;
+  return tf.tidy(()=>{
+    const clipped = yPred.clipByValue(EPS, 1-EPS);
+    const term1 = yTrue.mul(clipped.log()).neg();
+    const term2 = tf.scalar(1).sub(yTrue).mul(tf.scalar(1).sub(clipped).log()).neg();
+    return term1.add(term2).mean();
+  });
+}
+function reduceLROnPlateau(opt, factor=0.5, patience=4, minLr=1e-7){
+  let bestVal = Infinity, wait = 0;
+  return {
+    onEpochEnd: async (ep, logs) => {
+      const valLoss = logs.val_loss;
+      if(valLoss < bestVal){
+        bestVal = valLoss; wait = 0;
+      } else {
+        wait++;
+        if(wait >= patience){
+          let lr;
+          if(typeof opt.learningRate === 'object'){
+            lr = opt.learningRate.dataSync()[0];
+          } else {
+            lr = opt.learningRate;
+          }
+          let newLr = lr * factor; if(newLr < minLr)newLr = minLr;
+          if(typeof opt.learningRate === 'object'){
+            opt.learningRate.assign(newLr);
+          } else {
+            opt.learningRate = newLr;
+          }
+          console.log(`ReduceLROnPlateau => epoch ${ep}, new lr: ${newLr}`);
+          wait = 0;
+        }
+      }
+    }
+  };
+}
+
+// 3) For epoch-end distribution updates
+function computeEpochDist(predArr, valArr, N){
+  const topK = 20;
+  const dist = [0,0,0,0,0,0];
+  for(let i = 0; i < valArr.length; i++){
+    const mainProbs = predArr[i].slice(0, N);
+    const sorted = mainProbs.map((v, idx) => ({ v, index: idx+1 }));
+    sorted.sort((a, b) => b.v - a.v);
+    const topIdx = sorted.slice(0, topK).map(o => o.index);
+    const actual = [];
+    for(let j = 0; j < N; j++){
+      if(valArr[i][j] === 1) actual.push(j+1);
+    }
+    const c = actual.filter(num => topIdx.includes(num)).length;
+    if(c >= 0 && c < dist.length){
+      dist[c]++;
+    }
+  }
+  return dist;
+}
+
+// 4) Initialize Loss Chart for Training vs Validation Loss
+let trainingLosses = [];
+let validationLosses = [];
+const lossCtx = document.getElementById('lossChart').getContext('2d');
+let lossChart = new Chart(lossCtx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      {
+        label: 'Training Loss',
+        data: [],
+        borderColor: 'rgba(255, 99, 132, 1)',
+        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+        fill: false,
+      },
+      {
+        label: 'Validation Loss',
+        data: [],
+        borderColor: 'rgba(54, 162, 235, 1)',
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        fill: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      x: {
+        title: { display: true, text: 'Epoch' }
+      },
+      y: {
+        title: { display: true, text: 'Loss' }
+      }
+    }
+  }
+});
+function updateLossChart() {
+  // Safety: if no data yet, skip updating axes
+  if (!trainingLosses.length || !validationLosses.length) {
+    return;
+  }
+
+  lossChart.data.labels = trainingLosses.map((_, idx) => idx + 1);
+  lossChart.data.datasets[0].data = trainingLosses;
+  lossChart.data.datasets[1].data = validationLosses;
+
+  lossChart.options.plugins.datalabels = {
+    display: (context) => context.dataIndex === trainingLosses.length - 1,
+    anchor: 'end',
+    align: 'top',
+    offset: 4,
+    clip: false,
+    color: '#333',
+    font: { weight: 'bold', size: 14 },
+    formatter: (value) => value.toFixed(4),
+  };
+
+  lossChart.options.layout = {
+    padding: { top: 20, right: 40, bottom: 20, left: 40 }
+  };
+
+  // Preserve existing axis options (like title) and only adjust min/max
+  const yScale = lossChart.options.scales.y || {};
+  const yMin = Math.min(...trainingLosses, ...validationLosses) * 0.95;
+  const yMax = Math.max(...trainingLosses, ...validationLosses) * 1.05;
+  yScale.min = yMin;
+  yScale.max = yMax;
+  lossChart.options.scales.y = yScale;
+
+  lossChart.update();
+}
+
+[[/script]]
+
+[[script]]
+const currentLotteryName = <?php echo json_encode($chosen['label']); ?>;
+document.addEventListener('DOMContentLoaded', async () => {
+  await tf.setBackend('webgl');
+  await tf.ready();
+
+  const drawsData = <?php echo json_encode($draws); ?>;
+  const pickSize = <?php echo (int)$chosen['pickSize']; ?>;
+  const N = <?php echo (int)$chosen['rangeMain']; ?>;
+  const M = <?php echo (int)$chosen['rangeExtra']; ?>;
+
+  // UX/Performance hint threshold (warning only, no enforced cap).
+  const WARN_ANALYSIS_COMBOS = 400; // show a gentle warning above this
+
+  const matchDistCtx = document.getElementById('matchDistChart').getContext('2d');
+  let matchDistribution = [0,0,0,0,0,0];
+  const matchDistChart = new Chart(matchDistCtx, {
+    type: 'bar',
+    data: {
+      labels: ['0','1','2','3','4','5'],
+      datasets: [{
+        label: 'Frequency',
+        data: matchDistribution.slice(),
+        backgroundColor: 'rgba(54,162,235,0.6)'
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { labels: { color: '#333' } },
+        datalabels: {
+          anchor: 'end', align: 'end', offset: -2,
+          color: '#333', font: { weight: 'bold', size: 14 },
+          formatter: v => v
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#333' }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: '#333' }, grid: { color: '#ccc' } }
+      }
+    }
+  });
+  function updateMatchDistChart(){
+    matchDistChart.data.datasets[0].data = matchDistribution.slice();
+    matchDistChart.update();
+  }
+
+  const startBtn = document.getElementById('startPrediction');
+  const pauseBtn = document.getElementById('pauseButton');
+  const resetBtn = document.getElementById('resetButton');
+  const spinner = document.getElementById('loadingSpinner');
+  const loadingMsg = document.getElementById('loadingMessage');
+  const pbC = document.getElementById('progressBarContainer');
+  const pb = document.getElementById('progressBar');
+  const pbText = document.getElementById('progressText');
+  const epC = document.getElementById('epochProgressContainer');
+  const epBar = document.getElementById('epochProgressBar');
+  const epText = document.getElementById('epochProgressText');
+
+  const totalAnalysesSpan = document.getElementById('totalAnalyses');
+  const totalPossibleAnalysesSpan = document.getElementById('totalPossibleAnalyses');
+  const estimatedTimeSpan = document.getElementById('estimatedTime');
+
+  const currentEpochsSpan = document.getElementById('currentEpochs');
+  const currentBatchSizeSpan = document.getElementById('currentBatchSize');
+  const currentDropoutRateSpan = document.getElementById('currentDropoutRate');
+  const currentLearningRateSpan = document.getElementById('currentLearningRate');
+  const currentActivationFunctionSpan = document.getElementById('currentActivationFunction');
+  const currentHiddenLayersSpan = document.getElementById('currentHiddenLayers');
+  const currentRecencyDecaySpan = document.getElementById('currentRecencyDecay');
+  const currentSkipAlphaSpan = document.getElementById('currentSkipAlpha'); // NEW: live skip strength
+
+  // NEW: live hint for SKAI Run Mode
+  const skaiRunModeSelect = document.getElementById('skaiRunMode');
+  const skaiModeHintEl    = document.getElementById('skaiModeHint');
+
+  function updateSkaiModeHint(mode) {
+    if (!skaiModeHintEl) {
+      return;
+    }
+    switch (mode) {
+      case 'conservative':
+        skaiModeHintEl.textContent =
+          'Conservative = tighter, stability-focused exploration that stays close to the settings you enter.';
+        break;
+      case 'exploratory':
+        skaiModeHintEl.textContent =
+          'Exploratory = wider, more aggressive search around your settings to test bolder SKAI profiles.';
+        break;
+      case 'balanced':
+      default:
+        skaiModeHintEl.textContent =
+          'Balanced = everyday use; explores a moderate band around your settings for steady performance.';
+        break;
+    }
+  }
+
+  if (skaiRunModeSelect && skaiModeHintEl) {
+    // Initialize from current value
+    updateSkaiModeHint(skaiRunModeSelect.value || 'balanced');
+    // Update on change
+    skaiRunModeSelect.addEventListener('change', function () {
+      updateSkaiModeHint(skaiRunModeSelect.value || 'balanced');
+    });
+  }
+
+  let globalData = null, isPaused = false;
+  let allResults = [], topPredictions = [], topSettings = [];
+  let totalAnalyses = 0, totalPossible = 0;
+
+  // NEW: compute per-draw Skip feature vectors (normalized 0..1) for each main number.
+  // drawsNumbers: [ [n1, n2, ...], ... ] in chronological order (oldest → newest).
+  // Returns: skipsPerStep[t][k] = normalized "draws since last hit" for number (k+1) at draw t.
+  function computeSkipFeatureSeries(drawsNumbers, pickSize, mainNumbersMax) {
+    const lastHitIndex = new Array(mainNumbersMax).fill(null);
+    const skipsPerStep = [];
+
+    for (let t = 0; t < drawsNumbers.length; t++) {
+      const skipVec = new Array(mainNumbersMax).fill(0);
+
+      // For each number, how long since it last appeared?
+      for (let k = 0; k < mainNumbersMax; k++) {
+        const last = lastHitIndex[k];
+        const skip = (last === null) ? t : (t - last - 1);
+        skipVec[k] = skip;
+      }
+
+      // Update lastHitIndex using the CURRENT draw's main numbers.
+      const draw = drawsNumbers[t];
+      for (let j = 0; j < pickSize; j++) {
+        const n = draw[j];
+        if (n >= 1 && n <= mainNumbersMax) {
+          lastHitIndex[n - 1] = t;
+        }
+      }
+
+      skipsPerStep.push(skipVec);
+    }
+
+    // Normalize skips to 0..1 so they combine safely with other features.
+    let maxSkip = 0;
+    for (let t = 0; t < skipsPerStep.length; t++) {
+      const vec = skipsPerStep[t];
+      for (let i = 0; i < vec.length; i++) {
+        if (vec[i] > maxSkip) {
+          maxSkip = vec[i];
+        }
+      }
+    }
+
+    if (maxSkip > 0) {
+      for (let t = 0; t < skipsPerStep.length; t++) {
+        const vec = skipsPerStep[t];
+        for (let i = 0; i < vec.length; i++) {
+          vec[i] = vec[i] / maxSkip;
+        }
+      }
+    }
+
+    return skipsPerStep;
+  }
+
+// REPLACE WITH (skip-enhanced prepareData, compatible with existing code)
+  function prepareData(){
+    if (!Array.isArray(drawsData) || drawsData.length < 1) {
+      alert('No draws found in DB data');
+      return null;
+    }
+
+    const valid = drawsData.filter(function (d) {
+      return d.numbers && d.numbers.length === pickSize;
+    });
+    if (valid.length < 1) {
+      alert('No valid draws in drawsData');
+      return null;
+    }
+
+    // Build main-number matrix and compute per-draw Skip feature series.
+    const drawsNumbers = valid.map(function (d) { return d.numbers; });
+    const skipSeries   = computeSkipFeatureSeries(drawsNumbers, pickSize, N);
+
+    // NEW: pre-compute example ages (0 = newest, larger = older) for recency weighting.
+    const numExamples = valid.length;
+    const ages = [];
+    for (let i = 0; i < numExamples; i++) {
+      ages.push(numExamples - 1 - i);
+    }
+
+    // NEW: keep latest skip vector so we can use it for live prediction input.
+    const latestSkipVec = (skipSeries.length > 0)
+      ? skipSeries[skipSeries.length - 1].slice()
+      : new Array(N).fill(0);
+
+    const inputsArr = [];
+    const labelsArr = [];
+
+    for (let i = 0; i < valid.length; i++) {
+      const d           = valid[i];
+      const baseNumbers = d.numbers;
+      const skipFeatures = (skipSeries[i] && skipSeries[i].length === N)
+        ? skipSeries[i]
+        : new Array(N).fill(0); // Fallback safety
+
+      // INPUT: main numbers + normalized skip features
+      const inputVec = baseNumbers.concat(skipFeatures);
+      inputsArr.push(inputVec);
+
+      // LABEL: one-hot main numbers (+ extra ball if present)
+      const main = new Array(N).fill(0);
+      baseNumbers.forEach(function (num) {
+        if (num >= 1 && num <= N) {
+          main[num - 1] = 1;
+        }
+      });
+
+      const extra = new Array(M).fill(0);
+      if (M > 0 && d.powerball && d.powerball >= 1 && d.powerball <= M) {
+        extra[d.powerball - 1] = 1;
+      }
+
+      labelsArr.push(main.concat(extra));
+    }
+
+    // Min–max normalize across the combined feature vector so later prediction code still works.
+    const inpT = tf.tensor2d(inputsArr);
+    const labT = tf.tensor2d(labelsArr);
+    const minT = inpT.min(0);
+    const maxT = inpT.max(0);
+    const diff = maxT.sub(minT).add(tf.scalar(1e-7));
+    const normIn = inpT.sub(minT).div(diff);
+
+    return {
+      inputs: normIn,
+      labels: labT,
+      inputMin: minT,
+      inputMax: maxT,
+      numExamples: numExamples,   // CHANGED: use numExamples from above
+      ages: ages,                 // NEW: for recency weighting
+      latestSkipVec: latestSkipVec // NEW: skip features for the latest draw
+    };
+  }
+
+  function updateProgress(done, total, startTime){
+
+    const pct = Math.round((done/total)*100);
+    pb.style.width = pct + '%';
+    pbText.innerText = `Progress: ${pct}% (${done}/${total})`;
+    const elapsed = (Date.now() - startTime) / 1000;
+    const ips = done / elapsed;
+    const remain = total - done;
+    const secLeft = remain / ips;
+    const dd = Math.floor(secLeft/86400);
+    const hh = Math.floor((secLeft % 86400) / 3600);
+    const mm = Math.floor(((secLeft % 86400) % 3600) / 60);
+    estimatedTimeSpan.innerText = done === 0 ? '--' : `${dd}d ${hh}h ${mm}m`;
+  }
+
+  let epochStartTime = 0;
+  async function onEpochBeginCB(epoch, totalEpochs){
+    epochStartTime = Date.now();
+    epC.style.display = 'block';
+  }
+  async function onEpochEndCB(epoch, totalEpochs, logs, model, valX, valY){
+    const e = epoch + 1;
+    const dur = (Date.now() - epochStartTime) / 1000;
+    const left = totalEpochs - e;
+    const est = dur * left;
+    const mm = Math.floor(est/60), ss = Math.floor(est % 60);
+    epText.innerText = `Epoch ${e}/${totalEpochs} took ~${dur.toFixed(2)}s. ~${mm}m ${ss}s left.`;
+    const epPct = Math.round((e / totalEpochs) * 100);
+    epBar.style.width = epPct + '%';
+    trainingLosses.push(logs.loss);
+    validationLosses.push(logs.val_loss);
+    updateLossChart();
+    const preds = model.predict(valX);
+    const pArr = await preds.array();
+    const vArr = await valY.array();
+    matchDistribution = computeEpochDist(pArr, vArr, N);
+    updateMatchDistChart();
+    preds.dispose();
+  }
+
+  function evaluateThresholds(predArr, valArr, thresholds){
+    let bestF1 = -Infinity, bestThr = 0.5;
+    for(let thr of thresholds){
+      let tp = 0, fp = 0, fn = 0;
+      for(let i = 0; i < valArr.length; i++){
+        for(let j = 0; j < N; j++){
+          const predicted = predArr[i][j] > thr ? 1 : 0;
+          const actual = valArr[i][j];
+          if(predicted === 1 && actual === 1) tp++;
+          else if(predicted === 1 && actual === 0) fp++;
+          else if(predicted === 0 && actual === 1) fn++;
+        }
+      }
+      const prec = (tp + fp) === 0 ? 0 : tp / (tp + fp);
+      const rec = (tp + fn) === 0 ? 0 : tp / (tp + fn);
+      const f1 = (prec + rec) === 0 ? 0 : 2 * (prec * rec) / (prec + rec);
+      if(f1 > bestF1){
+        bestF1 = f1; bestThr = thr;
+      }
+    }
+    return { bestF1, bestThr };
+  }
+
+  function addRunAndPlotBest(res) {
+    allResults.push(res);
+    allResults.sort((a, b) => b.avgF1Score - a.avgF1Score);
+    const best = allResults[0];
+    matchDistribution = best.matchDistribution.slice();
+    updateMatchDistChart();
+    document.getElementById('currentBestRunLabel').innerText =
+        `Currently displaying the best run so far:
+         Epochs: ${best.epochs},
+         Batch: ${best.batchSize},
+         Dropout: ${best.dropoutRate},
+         LR: ${best.learningRate},
+         AF: ${best.activationFunction},
+         Layers: ${best.numHiddenLayers}`;
+    document.getElementById('currentBestRunLabel').style.display = 'block';
+
+    const summaryParagraph = `
+      [[strong]]SKAI Settings Summary for ${currentLotteryName}:[[/strong]][[br]][[br]]
+      This lab ranks each hyperparameter setting by its [[em]]Weighted Hit Score (WHS)[[/em]], which rewards average correct hits per draw while penalizing high variability between draws. A high WHS means the configuration not only finds more hits on average but does so consistently across different slices of history.[[br]][[br]]
+      When reviewing results, focus on settings with strong WHS values and low F1 standard deviation. These “steady performers” are the best candidates to copy into your live SKAI AI or Original AI prediction tools for day-to-day use.
+    `;
+    document.getElementById('summaryText').innerHTML = summaryParagraph;
+    document.getElementById('liveSummary').style.display = 'block';
+  }
+
+  async function runSinglePass(){
+    const eVal = document.getElementById('epochsRange').value.trim() || '70-130';
+    const bsVal = document.getElementById('batchSizes').value.trim() || '4';
+
+    const rdVal = document.getElementById('recencyDecayRates').value.trim() || '1';
+    const scoringProfileSelect = document.getElementById('scoringProfile'); // NEW: scoring profile
+    const scoringProfile = scoringProfileSelect ? scoringProfileSelect.value : 'balanced';
+
+    // Read SKAI engine settings (metadata only – used for reporting, not for training loops).
+    var skaiWindowSizeInput   = document.getElementById('skaiWindowSize');
+    var skaiSkipWindowInput   = document.getElementById('skaiSkipWindow');
+    var skaiFreqWeightInput   = document.getElementById('skaiFreqWeight');
+    var skaiSkipWeightInput   = document.getElementById('skaiSkipWeight');
+    var skaiHistWeightInput   = document.getElementById('skaiHistWeight');
+    var skaiPbFreqWeightInput = document.getElementById('skaiPbFreqWeight');
+    var skaiPbSkipWeightInput = document.getElementById('skaiPbSkipWeight');
+    var skaiPbHistWeightInput = document.getElementById('skaiPbHistWeight');
+    var skaiBlendSkipInput    = document.getElementById('skaiBlendSkipPct');
+    var skaiBlendAiInput      = document.getElementById('skaiBlendAiPct');
+    var skaiTempInput         = document.getElementById('skaiSamplingTemperature');
+    var skaiDivPenaltyInput   = document.getElementById('skaiDiversityPenalty');
+    var skaiGapScaleInput     = document.getElementById('skaiGapScale');
+    var skaiTopNNumbersInput  = document.getElementById('skaiTopNNumbers');
+
+    // NEW: raw text for SKAI blend Skip% so we can support ranges like "1-60"
+    var skaiBlendSkipRaw = (skaiBlendSkipInput && skaiBlendSkipInput.value)
+      ? skaiBlendSkipInput.value.trim()
+      : '';
+    // No separate Top-N combos field in the lab UI; combos are not used in current SKAI tools.
+    var skaiTopNCombosInput   = null;
+    // Run mode is derived from the scoring profile (balanced / steady / aggressive),
+    // so we do not expose a second dropdown here.
+    var skaiRunModeSelect     = null;
+
+    function parseIntSafe(el, fallback) {
+      var v = el && el.value ? parseInt(el.value, 10) : NaN;
+      return isNaN(v) ? fallback : v;
+    }
+    function parseFloatSafe(el, fallback) {
+      var v = el && el.value ? parseFloat(el.value) : NaN;
+      return isNaN(v) ? fallback : v;
+    }
+
+    function parsePctSafe(el, fallback) {
+      var v = parseFloatSafe(el, fallback);
+      if (v < 0) { v = 0; }
+      if (v > 100) { v = 100; }
+      return v;
+    }
+
+    var skaiWindowSize   = parseIntSafe(skaiWindowSizeInput, 0);
+    var skaiSkipWindow   = parseIntSafe(skaiSkipWindowInput, 0);
+    var skaiFreqWeight   = parsePctSafe(skaiFreqWeightInput, 0);
+    var skaiSkipWeight   = parsePctSafe(skaiSkipWeightInput, 0);
+    var skaiHistWeight   = parsePctSafe(skaiHistWeightInput, 0);
+    var skaiPbFreqWeight = parsePctSafe(skaiPbFreqWeightInput, 0);
+    var skaiPbSkipWeight = parsePctSafe(skaiPbSkipWeightInput, 0);
+    var skaiPbHistWeight = parsePctSafe(skaiPbHistWeightInput, 0);
+    var skaiBlendSkipPct = parsePctSafe(skaiBlendSkipInput, 0);
+    var skaiBlendAiPct   = parsePctSafe(skaiBlendAiInput, 0);
+    var skaiSamplingTemp = parseFloatSafe(skaiTempInput, 0);
+    var skaiDiversityPen = parseFloatSafe(skaiDivPenaltyInput, 0);
+    var skaiGapScale     = parseFloatSafe(skaiGapScaleInput, 0);
+  // Top-N numbers come from the single visible field; combos are fixed to 0 for now.
+    var skaiTopNNumbers  = parseIntSafe(skaiTopNNumbersInput, 20);
+    var skaiTopNCombos   = 0;
+
+    // Map lab scoring profile → SKAI run mode label for reporting:
+    //   balanced   → balanced
+    //   steady     → conservative
+    //   aggressive → exploratory
+    var skaiRunMode;
+    if (scoringProfile === 'steady') {
+      skaiRunMode = 'conservative';
+    } else if (scoringProfile === 'aggressive') {
+      skaiRunMode = 'exploratory';
+    } else {
+      skaiRunMode = 'balanced';
+    }
+
+    // ------------------------------------------------------------------
+    // Build SKAI engine weight / blend grid that the lab will test.
+    // If the user has typed anything non-zero, we respect that as
+    // a single combo. If all knobs are 0, we fall back to a small
+    // internal grid so the lab still explores SKAI.
+    // ------------------------------------------------------------------
+    var skaiWeightCombos = [];
+    var anySkaiSpecified =
+      skaiFreqWeight   || skaiSkipWeight   || skaiHistWeight   ||
+      skaiPbFreqWeight || skaiPbSkipWeight || skaiPbHistWeight ||
+      skaiBlendSkipPct || skaiBlendAiPct   ||
+      skaiSamplingTemp || skaiDiversityPen || skaiGapScale     ||
+      skaiTopNNumbers  || skaiTopNCombos;
+
+    if (anySkaiSpecified) {
+      // Use exactly what the user entered as a single SKAI profile.
+      skaiWeightCombos.push({
+        freqMain:    skaiFreqWeight,
+        skipMain:    skaiSkipWeight,
+        histMain:    skaiHistWeight,
+        freqPb:      skaiPbFreqWeight,
+        skipPb:      skaiPbSkipWeight,
+        histPb:      skaiPbHistWeight,
+        blendSkip:   skaiBlendSkipPct,
+        blendAi:     skaiBlendAiPct,
+        temp:        skaiSamplingTemp || 0,
+        diversity:   skaiDiversityPen || 0,
+        gapScale:    skaiGapScale || 0,
+        topNNumbers: skaiTopNNumbers || 20,
+        topNCombos:  skaiTopNCombos  || 50,
+        runMode:     skaiRunMode
+      });
+    } else {
+      // All zeros in the UI → try a small built-in grid of SKAI profiles.
+      skaiWeightCombos = [
+        {
+          // Frequency-leaning, balanced blend
+          freqMain: 60, skipMain: 25, histMain: 15,
+          freqPb:   60, skipPb:   25, histPb:   15,
+          blendSkip: 40, blendAi: 60,
+          temp: 0.7, diversity: 0.3, gapScale: 1.0,
+          topNNumbers: 20, topNCombos: 50,
+          runMode: skaiRunMode
+        },
+        {
+          // Skip-heavy, more aggressive
+          freqMain: 40, skipMain: 40, histMain: 20,
+          freqPb:   40, skipPb:   40, histPb:   20,
+          blendSkip: 50, blendAi: 50,
+          temp: 0.8, diversity: 0.4, gapScale: 1.0,
+          topNNumbers: 22, topNCombos: 80,
+          runMode: skaiRunMode
+        }
+      ];
+    }
+
+    // Existing recency-decay parsing
+    let recencyArr = rdVal.split(',').map(function (v) {
+      return parseFloat(v);
+    }).filter(function (v) { return !isNaN(v); });
+    if (!recencyArr.length) {
+      recencyArr = [1];
+    }
+
+    // NEW: Optional SKAI main-weight profile search input (string field in the lab UI).
+    // Format example:
+    //   "40,40,20,40,40,20,50,50,1,0.3,0.5,20,30|60,20,20,60,20,20,40,60,0.8,0.2,1.0,15,25"
+    // Each '|' segment is:
+    //   freqMain,skipMain,histMain,
+    //   freqPb,skipPb,histPb,
+    //   blendSkipPct,blendAiPct,
+    //   samplingTemp,diversityPen,gapScale,
+    //   topNNumbers,topNCombos
+    var skaiMainWeightProfilesInput = document.getElementById('skaiMainWeightProfiles');
+    var skaiMainWeightProfiles = (skaiMainWeightProfilesInput && skaiMainWeightProfilesInput.value)
+      ? skaiMainWeightProfilesInput.value.trim()
+      : '';
+
+    function parseMainWeightProfiles(str) {
+      var out = [];
+      if (!str) {
+        return out;
+      }
+      var parts = str.split('|');
+      for (var i = 0; i < parts.length; i++) {
+        var seg = parts[i];
+        if (!seg) {
+          continue;
+        }
+        var nums = seg.split(',').map(function (v) {
+          return parseFloat(v);
+        }).filter(function (v) { return !isNaN(v); });
+
+        // We expect 13 numbers as described above
+        if (nums.length === 13) {
+          out.push({
+            freqMain:   nums[0],
+            skipMain:   nums[1],
+            histMain:   nums[2],
+            freqPb:     nums[3],
+            skipPb:     nums[4],
+            histPb:     nums[5],
+            blendSkip:  nums[6],
+            blendAi:    nums[7],
+            temp:       nums[8],
+            diversity:  nums[9],
+            gapScale:   nums[10],
+            topNNumbers:nums[11],
+            topNCombos: nums[12]
+          });
+        }
+      }
+      return out;
+    }
+
+    // Main SKAI weight combos to iterate over in the grid search.
+    // If no custom profiles are provided, fall back to SKAI values from the UI –
+    // but allow the Blend (Skip %) field to be a range like "1-60" with step 2.
+    var skaiWeightCombos = parseMainWeightProfiles(skaiMainWeightProfiles);
+    if (!skaiWeightCombos.length) {
+      // If user typed a range (e.g., "1-60") in the SKAI Blend Skip% field,
+      // build skip% values at step 2: 2,4,6,... within that span.
+      // Otherwise fall back to the single parsed value.
+      var blendSkipValues = parseStepRange(skaiBlendSkipRaw, 2);
+      if (!blendSkipValues.length) {
+        blendSkipValues = [skaiBlendSkipPct];
+      }
+
+      skaiWeightCombos = [];
+      for (var b = 0; b < blendSkipValues.length; b++) {
+        var thisSkip = blendSkipValues[b];
+        // If AI% is not explicitly set, mirror to 100 - Skip%.
+        var thisAi   = skaiBlendAiPct || (100 - thisSkip);
+
+        skaiWeightCombos.push({
+          freqMain:    skaiFreqWeight,
+          skipMain:    skaiSkipWeight,
+          histMain:    skaiHistWeight,
+          freqPb:      skaiPbFreqWeight,
+          skipPb:      skaiPbSkipWeight,
+          histPb:      skaiPbHistWeight,
+          blendSkip:   thisSkip,
+          blendAi:     thisAi,
+          temp:        skaiSamplingTemp,
+          diversity:   skaiDiversityPen,
+          gapScale:    skaiGapScale,
+          topNNumbers: skaiTopNNumbers,
+          topNCombos:  skaiTopNCombos
+        });
+      }
+    }
+
+    // NEW: Skip strength (SKIP_ALPHA) values
+    var saInput = document.getElementById('skipAlphaValues');
+    var saVal   = saInput ? saInput.value.trim() : '1';
+
+    // Allow either:
+    //   - Comma list: "0.1,0.3,0.5"
+    //   - Range:      "1-60"  => 2,4,6,8,...,60  (step = 2)
+    var skipAlphaArr = [];
+
+    if (saVal && saVal.indexOf('-') !== -1 && saVal.indexOf(',') === -1) {
+      // Range mode: "min-max"
+      var parts = saVal.split('-');
+      var lo    = parseFloat(parts[0]);
+      var hi    = parseFloat(parts[1]);
+
+      if (!isNaN(lo) && !isNaN(hi)) {
+        var step  = 2; // fixed increment of 2 as requested
+        var minV  = Math.min(lo, hi);
+        var maxV  = Math.max(lo, hi);
+
+        // Start at the first multiple of "step" >= minV
+        var start = Math.ceil(minV / step) * step;
+
+        for (var v = start; v <= maxV; v += step) {
+          skipAlphaArr.push(v);
+        }
+      }
+    }
+
+    // Fallback: standard comma-separated list
+    if (!skipAlphaArr.length) {
+      skipAlphaArr = saVal.split(',').map(function (v) {
+        return parseFloat(v);
+      }).filter(function (v) { return !isNaN(v); });
+    }
+
+    if (!skipAlphaArr.length) {
+      skipAlphaArr = [1];
+    }
+
+    const drVal = document.getElementById('dropoutRates').value.trim() || '0.2';
+    const lrVal = document.getElementById('learningRates').value.trim() || '0.002';
+    const afSelect = document.getElementById('activationFunctions');
+    const selectedAFs = Array.from(afSelect.selectedOptions).map(opt => opt.value);
+    const actArr = selectedAFs.length ? selectedAFs : ['tanh'];
+    const hlVal = document.getElementById('hiddenLayers').value.trim() || '';
+    function parseRange(str){
+      var minEpoch = 5;
+      var maxEpoch = 1000;
+      if(str.includes('-')){
+        var parts = str.split('-');
+        var s = parseInt(parts[0], 10);
+        var e = parseInt(parts[1], 10);
+        if (isNaN(s)) { s = minEpoch; }
+        if (isNaN(e)) { e = s; }
+        var lo = Math.min(s, e);
+        var hi = Math.max(s, e);
+        // Clamp into safe range
+        lo = Math.max(minEpoch, Math.min(maxEpoch, lo));
+        hi = Math.max(minEpoch, Math.min(maxEpoch, hi));
+        return [lo, hi];
+      } else {
+        var single = parseInt(str,10);
+        if (isNaN(single)) {
+          single = 70;
+        }
+        single = Math.max(minEpoch, Math.min(maxEpoch, single));
+        return [single, single];
+      }
+    }
+
+    // NEW: generic helper for ranges like "1-60" with a fixed step (e.g. 2)
+    function parseStepRange(str, step){
+      step = step || 1;
+      if (!str) {
+        return [];
+      }
+      str = String(str).trim();
+
+      // Single value → just return that
+      if (str.indexOf('-') === -1) {
+        var vSingle = parseFloat(str);
+        return isNaN(vSingle) ? [] : [vSingle];
+      }
+
+      // Range "a-b" → build a, a+step, …, b (clamped properly)
+      var parts = str.split('-');
+      var lo = parseFloat(parts[0]);
+      var hi = parseFloat(parts[1]);
+      if (isNaN(lo) || isNaN(hi)) {
+        return [];
+      }
+      if (lo > hi) {
+        var tmp = lo;
+        lo = hi;
+        hi = tmp;
+      }
+
+      var out = [];
+      if (step <= 0) {
+        step = 1;
+      }
+
+      // Start at the first multiple of `step` ≥ lo.
+      var start = Math.ceil(lo / step) * step;
+      for (var v = start; v <= hi; v += step) {
+        out.push(v);
+      }
+      return out;
+    }
+
+    const [epochStart, epochEnd] = parseRange(eVal);
+
+    // Clean numeric lists: drop NaN/invalid and ensure at least one value.
+    let batchArr = bsVal.split(',').map(Number).filter(function (v) {
+      return !isNaN(v) && v > 0;
+    });
+    if (!batchArr.length) {
+      batchArr = [4]; // safe default
+    }
+
+    let dropArr = drVal.split(',').map(Number).filter(function (v) {
+      return !isNaN(v) && v >= 0 && v < 1.0;
+    });
+    if (!dropArr.length) {
+      dropArr = [0.2];
+    }
+
+    let lrArr = lrVal.split(',').map(Number).filter(function (v) {
+      return !isNaN(v) && v > 0;
+    });
+    if (!lrArr.length) {
+      lrArr = [0.002];
+    }
+
+    let hiddenArr = hlVal.split(',').map(Number).filter(function (v) {
+      return !isNaN(v) && v >= 0;
+    });
+    if (!hiddenArr.length) {
+      hiddenArr = [2];
+    }
+
+    // -----------------------------------------------
+    // SKAI main-weight combos:
+    // For now we use a single combo equal to the
+    // currently selected SKAI weights from the UI.
+    // This keeps the code valid and lets us surface
+    // the SKAI profile alongside the NN metrics.
+    // Later we can expand this array into multiple
+    // candidate triples for a true multi-combo search.
+    // -----------------------------------------------
+    var mainWeightCombos = [
+      {
+        freq: skaiFreqWeight,
+        skip: skaiSkipWeight,
+        hist: skaiHistWeight
+      }
+    ];
+
+    // NEW: scoring profile weights for WHS + tail metrics
+    // scoringProfile is already read at the top of runSinglePass()
+    let lambda, beta3, beta4, betaBonus;
+    switch (scoringProfile) {
+      case 'steady':
+        lambda    = 0.7;   // stronger penalty for volatility
+        beta3     = 0.25;  // modest reward for ≥3 hits
+        beta4     = 0.50;  // modest reward for ≥4 hits
+        betaBonus = 0.40;  // modest reward for bonus hits
+        break;
+      case 'aggressive':
+        lambda    = 0.2;   // lighter penalty on volatility
+        beta3     = 1.00;  // strong reward for ≥3 hits
+        beta4     = 2.00;  // strong reward for ≥4 hits
+        betaBonus = 1.50;  // strong reward for bonus hits
+        break;
+      default: // balanced
+        lambda    = 0.4;   // balanced volatility penalty
+        beta3     = 0.50;  // balanced reward for ≥3 hits
+        beta4     = 1.00;  // balanced reward for ≥4 hits
+        betaBonus = 0.75;  // balanced reward for bonus hits
+        break;
+    }
+
+    const epochsAll = [];
+    for (let e = epochStart; e <= epochEnd; e++) {
+      epochsAll.push(e);
+    }
+
+    // Compute combinations per epoch (for info only; no enforced caps).
+    var combosPerEpoch =
+      batchArr.length *
+      dropArr.length *
+      lrArr.length *
+      actArr.length *
+      hiddenArr.length *
+      recencyArr.length *
+      skipAlphaArr.length *
+      mainWeightCombos.length *
+      skaiWeightCombos.length; // NEW: include SKAI profiles in combo count
+
+    if (combosPerEpoch <= 0) {
+      combosPerEpoch = 1;
+    }
+
+    totalPossible = epochsAll.length * combosPerEpoch;
+    totalPossibleAnalysesSpan.innerText = totalPossible;
+    totalAnalyses = 0;
+    totalAnalysesSpan.innerText = 0;
+
+    // If heavy, show a gentle workload hint in the ETA text, but do not restrict.
+    if (totalPossible > WARN_ANALYSIS_COMBOS) {
+      estimatedTimeSpan.innerText = 'High workload – consider narrowing ranges.';
+    } else {
+      estimatedTimeSpan.innerText = '--';
+    }
+
+    let {inputs, labels, numExamples, inputMin, inputMax, ages, latestSkipVec} = globalData; // CHANGED: added ages + latestSkipVec
+    const baseInputs = inputs; // NEW: keep original normalized feature tensor
+
+    // NEW: Time-series safe windows — no future leakage.
+    const numWindows = 3;        // number of forward windows
+    const windowSize = Math.floor(numExamples / 6); // validation window ≈ 1/6 of draws
+    // Each window i validates the block AFTER its train region.
+    const inputDim = pickSize + N; // feature length = main numbers + skip features
+
+    allResults = []; topPredictions = []; topSettings = [];
+    matchDistribution = [0, 0, 0, 0, 0, 0];
+    updateMatchDistChart();
+
+    let done = 0;
+    const startTime = Date.now();
+
+    const lastDraw = drawsData.length > 0 ? drawsData[drawsData.length - 1] : null;
+    const actualNums = lastDraw ? lastDraw.numbers : [];
+    const actualExtra = (lastDraw && lastDraw.powerball) ? lastDraw.powerball : null;
+
+    // NEW: Declare finalModel to capture the model from the last fold for live prediction.
+    let finalModel = null;
+
+    // NEW: outer loop over SKAI weight / blend profiles
+    for (var skaiIdx = 0; skaiIdx < skaiWeightCombos.length; skaiIdx++) {
+      var skaiCombo = skaiWeightCombos[skaiIdx];
+
+      // Bind SKAI combo values for this experiment
+      var skaiFreqMain      = skaiCombo.freqMain;
+      var skaiSkipMain      = skaiCombo.skipMain;
+      var skaiHistMain      = skaiCombo.histMain;
+      var skaiFreqPb        = skaiCombo.freqPb;
+      var skaiSkipPb        = skaiCombo.skipPb;
+      var skaiHistPb        = skaiCombo.histPb;
+      var skaiBlendSkipGrid = skaiCombo.blendSkip;
+      var skaiBlendAiGrid   = skaiCombo.blendAi;
+      var skaiTempGrid      = skaiCombo.temp;
+      var skaiDivGrid       = skaiCombo.diversity;
+      var skaiGapScaleGrid  = skaiCombo.gapScale;
+      var skaiTopNNumsGrid  = skaiCombo.topNNumbers;
+      var skaiTopNCombosGrid= skaiCombo.topNCombos;
+      // Run mode for this grid combo (fallback to current UI run mode or 'balanced')
+      var skaiRunModeGrid   = (skaiCombo.runMode || skaiRunMode || 'balanced');
+
+      // Working aliases used by the scoring logic
+      // (avoid ReferenceError: freqWeight is not defined)
+      var freqWeight = skaiFreqMain;
+      var skipWeight = skaiSkipMain;
+      var histWeight = skaiHistMain;
+
+      for(let epochs of epochsAll){
+
+        for(let batchSize of batchArr){
+          for(let dropoutRate of dropArr){
+            for(let learningRate of lrArr){
+              for(let activationFunction of actArr){
+                for(let numHiddenLayers of hiddenArr){
+
+                  // NEW: loop over Skip Strength (SKIP_ALPHA)
+                  for (let skipAlpha of skipAlphaArr) {
+
+                  for (let recencyDecay of recencyArr) {
+
+                if(isPaused){
+                  await new Promise(r => {
+                    const iv = setInterval(()=>{
+                      if(!isPaused){
+                        clearInterval(iv);
+                        r();
+                      }
+                    },200);
+                  });
+                }
+                currentEpochsSpan.innerText = epochs;
+                currentBatchSizeSpan.innerText = batchSize;
+                currentDropoutRateSpan.innerText = dropoutRate;
+                currentLearningRateSpan.innerText = learningRate;
+                currentActivationFunctionSpan.innerText = activationFunction;
+                currentHiddenLayersSpan.innerText = numHiddenLayers;
+                currentRecencyDecaySpan.innerText = recencyDecay;
+                currentSkipAlphaSpan.innerText = skipAlpha; // NEW: show SKIP_ALPHA
+
+                // NEW: scale skip feature columns by SKIP_ALPHA.
+                // Feature vector layout: [0 .. pickSize-1] = main numbers,
+                // [pickSize .. pickSize+N-1] = skip features.
+                const scaleArr = [];
+                for (let i = 0; i < pickSize; i++) {
+                  scaleArr.push(1);
+                }
+                for (let i = 0; i < N; i++) {
+                  scaleArr.push(skipAlpha);
+                }
+                const featureScale = tf.tensor1d(scaleArr);
+                const inputsScaled = baseInputs.mul(featureScale);
+
+                // NEW: recencyDecay determines how much history we keep.
+                // recencyDecay clamped to [0,1], then mapped to [0.3,1.0] of history.
+                const rdClamped = Math.max(0, Math.min(1, recencyDecay));
+                const minFrac = 0.3;
+                const maxFrac = 1.0;
+                let fracHist = minFrac + (maxFrac - minFrac) * rdClamped;
+
+                let localNumExamples = Math.floor(numExamples * fracHist);
+                if (localNumExamples < numWindows * 3) {
+                  // Ensure we still have enough draws for rolling windows.
+                  localNumExamples = Math.min(numExamples, numWindows * 3);
+                }
+                const effectiveStart = numExamples - localNumExamples;
+
+                // Slice only the most recent "localNumExamples" draws
+                const localInputs = inputsScaled.slice([effectiveStart, 0], [localNumExamples, -1]);
+                const localLabels = labels.slice([effectiveStart, 0], [localNumExamples, -1]);
+
+                // Window size tuned to this recency subset
+                const localWindowSize = Math.max(1, Math.floor(localNumExamples / (numWindows * 3)));
+
+                let totalLoss = 0, totalAcc = 0, totalPrec = 0, totalRec = 0, totalF1 = 0;
+
+                let matchCount = 0, bestRankSum = 0, maxMatches = 0, perfectFive = 0, extraMatches = 0;
+                let foldF1s = [];
+                let totalValExamples = 0; // NEW: track validation draws for this hyperparameter combo
+
+                // === NEW: compute weighted hit stats + tail metrics for this setting ===
+                // perDrawWHS: WHS per validation draw
+                let perDrawWHS = [];
+                // Tail counters across all validation draws for this hyperparameter combo
+                let drawsWith3Plus = 0;
+                let drawsWith4Plus = 0;
+                let drawsWithBonusHit = 0;
+                let totalDrawsEval = 0;
+
+                const wMain  = <?php echo (int)($chosen['mainWeight'] ?? 5); ?>;
+                const wBonus = <?php echo (int)($chosen['bonusWeight'] ?? 2); ?>;
+                
+
+
+
+
+                // NEW: Time-series safe rolling validation windows on the recency subset.
+                for (let w = 0; w < numWindows; w++) {
+
+                  trainingLosses = [];
+                  validationLosses = [];
+                  updateLossChart();
+
+                  // Define window ranges within the local (recency-limited) history
+                  const trainEnd = (w + 2) * localWindowSize;  // expand train with each window
+                  if (trainEnd >= localNumExamples) {
+                    break; // not enough data left for this window
+                  }
+                  const valStart = trainEnd;
+                  const valEnd   = Math.min(trainEnd + localWindowSize, localNumExamples);
+
+                  // Slice training region: [0 .. trainEnd-1] inside local subset
+                  const trainX = localInputs.slice([0, 0], [trainEnd, -1]);
+                  const trainY = localLabels.slice([0, 0], [trainEnd, -1]);
+
+                  // Slice validation region: [valStart .. valEnd-1] inside local subset
+                  const valCount = valEnd - valStart;
+                  if (valCount <= 0) {
+                    break;
+                  }
+                  const valX = localInputs.slice([valStart, 0], [valCount, -1]);
+                  const valY = localLabels.slice([valStart, 0], [valCount, -1]);
+                  totalValExamples += valCount; // NEW: track how many validation draws we evaluated
+
+                  // === MODEL BUILDING ===
+                  const model = tf.sequential();
+                  model.add(tf.layers.dense({
+                    units: 128,
+                    activation: activationFunction,
+                    inputShape: [inputDim]
+                  }));
+                  model.add(tf.layers.dropout({ rate: dropoutRate }));
+                  for (let i = 0; i < numHiddenLayers; i++) {
+                    model.add(tf.layers.dense({ units: 64, activation: activationFunction }));
+                    model.add(tf.layers.dropout({ rate: dropoutRate }));
+                  }
+                  model.add(tf.layers.dense({ units: N + M, activation: 'sigmoid' }));
+
+                  const opt = tf.train.adam(learningRate);
+                  model.compile({
+                    optimizer: opt,
+                    loss: customBinaryCrossentropy,
+                    metrics: ['binaryAccuracy']
+                  });
+
+                  let patience = 5, patienceCounter = 0;
+                  const lrSched = reduceLROnPlateau(opt, 0.5, 4, 1e-7);
+
+                  await model.fit(trainX, trainY, {
+                    epochs,
+                    batchSize,
+                    validationData: [valX, valY], // CHANGED: no validation sample weights
+                    verbose: 0,
+                    callbacks: {
+                      onEpochBegin: async (ep) => onEpochBeginCB(ep, epochs),
+                      onEpochEnd: async (ep, logs) => {
+                        await onEpochEndCB(ep, epochs, logs, model, valX, valY);
+                        if(logs.val_loss < Number.MAX_VALUE){
+                          patienceCounter = 0;
+                        } else {
+                          patienceCounter++;
+                          if(patienceCounter >= patience){
+                            model.stopTraining = true;
+                          }
+                        }
+                        await lrSched.onEpochEnd(ep, logs);
+                      }
+                    }
+                  });
+
+                  // === VALIDATION PRED & METRICS ===
+                  const preds = model.predict(valX);
+                  const predArr = await preds.array();
+                  const valArr = await valY.array();
+
+                  let foldMatchCount = 0;
+                  let tp = 0, fp = 0, fn = 0;
+
+                  for(let i = 0; i < valArr.length; i++){
+                    const mainProbs = predArr[i].slice(0, N);
+                    const extraProbs = predArr[i].slice(N, N + M);
+
+                    const sortedMain = mainProbs.map((val, idx) => ({ val, index: idx+1 }));
+                    sortedMain.sort((a, b) => b.val - a.val);
+                    const topIdx = sortedMain.slice(0, 20).map(o => o.index);
+
+                    // Actual positions
+                    const actualArray = [];
+                    for(let j = 0; j < N; j++){
+                      if(valArr[i][j] === 1) actualArray.push(j+1);
+                    }
+
+                    // Matches
+                    const matchedArr = actualArray.filter(n => topIdx.includes(n));
+                    foldMatchCount += matchedArr.length;
+
+                    const hitsThisDraw = matchedArr.length;
+                    if (hitsThisDraw > maxMatches) maxMatches = hitsThisDraw;
+
+                    // NEW: tail hit counters (per draw)
+                    if (hitsThisDraw >= 3) {
+                      drawsWith3Plus++;
+                    }
+                    if (hitsThisDraw >= 4) {
+                      drawsWith4Plus++;
+                    }
+
+                    // Rank score
+                    let bestRank = Infinity;
+                    matchedArr.forEach(n => {
+                      const r = topIdx.indexOf(n) + 1;
+                      if (r < bestRank) bestRank = r;
+                    });
+                    if (bestRank === Infinity) bestRank = topIdx.length + 1;
+                    bestRankSum += bestRank;
+
+                    // Bonus ball
+                    let actualEB = null;
+                    for (let ex = 0; ex < M; ex++) {
+                      if (valArr[i][N + ex] === 1) actualEB = ex + 1;
+                    }
+                    let eBest = -1, eVal = -Infinity;
+                    for (let ex = 0; ex < M; ex++) {
+                      if (extraProbs[ex] > eVal) {
+                        eVal = extraProbs[ex];
+                        eBest = ex + 1;
+                      }
+                    }
+
+                    const bonusHit = (actualEB && eBest === actualEB) ? 1 : 0;
+                    const whs = wMain * matchedArr.length + wBonus * bonusHit;
+                    perDrawWHS.push(whs);
+
+                    // NEW: bonus tail counter + total draws evaluated
+                    if (bonusHit) {
+                      extraMatches++;
+                      drawsWithBonusHit++;
+                    }
+                    totalDrawsEval++;
+
+                    // F1 counts
+                    for(let j = 0; j < N; j++){
+                      const predicted = predArr[i][j] > 0.5 ? 1 : 0;
+                      const act = valArr[i][j];
+                      if(predicted === 1 && act === 1) tp++;
+                      else if(predicted === 1 && act === 0) fp++;
+                      else if(predicted === 0 && act === 1) fn++;
+                    }
+                  }
+
+                  const prec = (tp + fp) === 0 ? 0 : tp/(tp+fp);
+                  const rec =  (tp + fn) === 0 ? 0 : tp/(tp+fn);
+                  const foldF1 = (prec + rec === 0) ? 0 : 2*(prec*rec)/(prec+rec);
+
+                  foldF1s.push(foldF1);
+                  totalF1 += foldF1;
+                  matchCount += foldMatchCount;
+
+                  const evalOut = model.evaluate(valX, valY, { batchSize, verbose: 0 });
+                  const lossVal = evalOut[0].dataSync()[0];
+                  const accVal  = evalOut[1].dataSync()[0];
+
+                  preds.dispose();
+                  trainX.dispose(); trainY.dispose();
+                  valX.dispose();   valY.dispose();
+
+                  totalLoss += lossVal;
+                  totalAcc  += accVal;
+                  totalPrec += prec;
+                  totalRec  += rec;
+
+                  if (w === numWindows - 1) {
+                    finalModel = model;
+                  } else {
+                    model.dispose();
+                  }
+                } // END rolling-window loop
+
+                // NEW: done using scaled features and local recency subset for this recencyDecay
+                featureScale.dispose();
+                inputsScaled.dispose();
+                localInputs.dispose();
+                localLabels.dispose();
+
+                // === Tail-helper summary across windows (optional, for UX / debugging) ===
+                const totalWindows = numWindows > 0 ? numWindows : 1;
+                const avgF1_tail = totalF1 / totalWindows;
+                let varF1_tail = 0;
+                if (foldF1s.length > 0) {
+                  varF1_tail = foldF1s.reduce(function (acc, val) {
+                    return acc + Math.pow(val - avgF1_tail, 2);
+                  }, 0) / foldF1s.length;
+                }
+                const stdF1_tail = Math.sqrt(varF1_tail);
+
+                // === Aggregate metrics for this setting (windows + draws) ===
+                const usedWindows = foldF1s.length || 1; // actual number of executed windows
+                const avgF1 = totalF1 / usedWindows;
+                const varF1 = foldF1s.length
+                  ? foldF1s.reduce(function (acc, val) {
+                      return acc + Math.pow(val - avgF1, 2);
+                    }, 0) / foldF1s.length
+                  : 0;
+                const stdF1 = Math.sqrt(varF1);
+
+                // Use totalValExamples as denominator for draw-based metrics
+                const denomDraws = totalValExamples || 1;
+                const avgMatches = denomDraws ? matchCount / denomDraws : 0;
+                const avgAcc = usedWindows ? totalAcc / usedWindows : 0;
+                const avgLoss = usedWindows ? totalLoss / usedWindows : 0;
+                const avgPrec = usedWindows ? totalPrec / usedWindows : 0;
+                const avgRec = usedWindows ? totalRec / usedWindows : 0;
+                const avgRank = denomDraws ? bestRankSum / denomDraws : 0;
+
+                // perDrawWHS was pushed on each draw inside the fold loop
+                const muWHS = perDrawWHS.length
+                  ? perDrawWHS.reduce(function (sum, x) { return sum + x; }, 0) / perDrawWHS.length
+                  : 0;
+                const sigmaWHS = perDrawWHS.length
+                  ? Math.sqrt(
+                      perDrawWHS.reduce(function (acc, x) {
+                        return acc + Math.pow(x - muWHS, 2);
+                      }, 0) / perDrawWHS.length
+                    )
+                  : 0;
+
+                // Tail probabilities:
+                // p3 = P(hits ≥ 3), p4 = P(hits ≥ 4), pBonus = P(bonus hit)
+                const p3 = denomDraws ? drawsWith3Plus / denomDraws : 0;
+                const p4 = denomDraws ? drawsWith4Plus / denomDraws : 0;
+                const pBonus = denomDraws ? drawsWithBonusHit / denomDraws : 0;
+
+                // Final selection score using SKAI-style main weights + profile-dependent penalties
+                // Normalize freq/skip/hist weights so they sum to 1
+                var sumMainW = freqWeight + skipWeight + histWeight;
+                if (!sumMainW || !isFinite(sumMainW)) {
+                  sumMainW = 1;
+                }
+                var wf = freqWeight / sumMainW;
+                var ws = skipWeight / sumMainW;
+                var wh = histWeight / sumMainW;
+
+                // Map lab metrics to SKAI concepts:
+                // - metricFreq  => more correct hits (avg WHS)
+                // - metricSkip  => stronger tails (p(3+), p(4+))
+                // - metricHist  => greater stability across windows
+                var metricFreq  = muWHS;
+                var metricSkip  = (p3 + p4) / 2;
+                var metricHist  = 1 / (1 + stdF1); // higher stdF1 => lower stability
+
+                var skaiWeightedScore =
+                  wf * metricFreq +
+                  ws * metricSkip +
+                  wh * metricHist;
+
+                // Combine SKAI-weighted score with volatility penalty and bonus-tail reward
+                const selectionScore =
+                  skaiWeightedScore
+                  - lambda * sigmaWHS
+                  + betaBonus * pBonus;
+
+                // use selectionScore instead of the old composite
+                const composite = selectionScore;
+
+                // Use finalModel for live prediction from the last draw:
+                let runPredictedNumbers = [];
+                let runPredictedExtra = null;
+                if(lastDraw && finalModel != null){
+                  // NEW: build the same type of feature vector used in training:
+                  // main numbers + latest skip features.
+                  const skipVecForLatest = latestSkipVec || new Array(N).fill(0);
+                  const featureVec = lastDraw.numbers.concat(skipVecForLatest);
+
+                  const latestInput = tf.tensor2d([featureVec]);
+                  const normLatest = latestInput.sub(inputMin)
+                                                .div(inputMax.sub(inputMin).add(tf.scalar(1e-7)));
+                  const finalPred = finalModel.predict(normLatest);
+                  const finalPredArr = await finalPred.array();
+                  const mainProbsFinal = finalPredArr[0].slice(0, N);
+                  const sortedFinal = mainProbsFinal.map((v, idx) => ({ v, index: idx + 1 }));
+                  sortedFinal.sort((a, b) => b.v - a.v);
+                  runPredictedNumbers = sortedFinal.slice(0, 20).map(o => o.index);
+                  if(M > 0){
+                    const extraProbsFinal = finalPredArr[0].slice(N, N + M);
+                    let bestExtraVal = -Infinity, bestExtra = -1;
+                    for(let x = 0; x < M; x++){
+                      if(extraProbsFinal[x] > bestExtraVal){
+                        bestExtraVal = extraProbsFinal[x];
+                        bestExtra = x + 1;
+                      }
+                    }
+                    runPredictedExtra = bestExtra;
+                  } else {
+                    runPredictedExtra = null;
+                  }
+                  latestInput.dispose();
+                  normLatest.dispose();
+                  finalPred.dispose();
+                  finalModel.dispose();
+                }
+
+                let actualStr = 'No data';
+                if(lastDraw){
+                  actualStr = actualNums.join(', ');
+                  if(actualExtra) actualStr += ` (Extra: ${actualExtra})`;
+                }
+
+                // Re-add highlighting for predicted numbers
+                // and count how many actually matched on this last draw.
+                let predictedStr = 'No predictions found';
+                let matchedMainCountLast  = 0;
+                let matchedExtraCountLast = 0;
+
+                if (runPredictedNumbers.length > 0) {
+                  const highlightArr = runPredictedNumbers.map(num => {
+                    if (actualNums.includes(num)) {
+                      matchedMainCountLast++; // count main-number match
+                      return `[[span class="highlight"]]${num}[[/span]]`;
+                    } else {
+                      return num;
+                    }
+                  });
+
+                  let extraTxt = '';
+                  if (M > 0 && runPredictedExtra !== null) {
+                    if (actualExtra && runPredictedExtra === actualExtra) {
+                      matchedExtraCountLast = 1; // we hit the bonus
+                      extraTxt = `[[span class="highlight"]]${runPredictedExtra}[[/span]]`;
+                    } else {
+                      extraTxt = runPredictedExtra;
+                    }
+                  }
+
+                  predictedStr = highlightArr.join(', ');
+                  if (extraTxt) {
+                    predictedStr += ` (Extra: ${extraTxt})`;
+                  }
+                 }
+                
+
+                // NEW: capture which numbers actually matched for narrative summary
+                var matchedMain = [];
+                if (runPredictedNumbers && actualNums && runPredictedNumbers.length && actualNums.length) {
+                  matchedMain = runPredictedNumbers.filter(function (n) {
+                    return actualNums.indexOf(n) !== -1;
+                  });
+                }
+                var matchedExtra = null;
+                if (M > 0 && actualExtra && runPredictedExtra !== null && runPredictedExtra === actualExtra) {
+                  matchedExtra = runPredictedExtra;
+                }
+
+                topPredictions.push({
+                  epochs: epochs,
+                  batchSize: batchSize,
+                  dropoutRate: dropoutRate,
+                  learningRate: learningRate,
+                  activationFunction: activationFunction,
+                  numHiddenLayers: numHiddenLayers,
+                  recencyDecay: recencyDecay,
+
+                  // SKAI metadata snapshot for this run
+                  // Window knobs (currently not part of the grid, but recorded for context)
+                  skaiWindowSize: skaiWindowSize,
+                  skaiSkipWindow: skaiSkipWindow,
+
+                  // Main-ball SKAI weights – use the active grid combo
+                  skaiFreqWeight:   skaiFreqMain,
+                  skaiSkipWeight:   skaiSkipMain,
+                  skaiHistWeight:   skaiHistMain,
+
+                  // Extra-ball SKAI weights – use the active grid combo
+                  skaiPbFreqWeight: skaiFreqPb,
+                  skaiPbSkipWeight: skaiSkipPb,
+                  skaiPbHistWeight: skaiHistPb,
+
+                  // Blend & sampling knobs – use the active grid combo
+                  skaiBlendSkipPct: skaiBlendSkipGrid,
+                  skaiBlendAiPct:   skaiBlendAiGrid,
+                  skaiSamplingTemp: skaiTempGrid,
+                  skaiDiversityPen: skaiDivGrid,
+                  skaiGapScale:     skaiGapScaleGrid,
+                  skaiTopNNumbers:  skaiTopNNumsGrid,
+                  skaiTopNCombos:   skaiTopNCombosGrid,
+                  skaiRunMode:      skaiRunModeGrid,
+
+                  // Performance metrics
+                  actual: actualStr,
+                  predicted: predictedStr,
+                  avgMatches: avgMatches,
+                  avgBestRank: avgRank,
+                  f1: avgF1,
+                  fiveMatches: perfectFive,
+                  extraBall: extraMatches,
+                  compositeScore: composite
+                });
+
+                topPredictions.sort((a, b) => b.compositeScore - a.compositeScore);
+                if(topPredictions.length > 3) topPredictions.pop();
+                const predBody = document.getElementById('topPredictionsBody');
+                predBody.innerHTML = '';
+                topPredictions.forEach(tp => {
+                  predBody.innerHTML += `
+                    [[tr]]
+                      [[td]]${tp.epochs}[[/td]]
+                      [[td]]${tp.batchSize}[[/td]]
+                      [[td]]${tp.dropoutRate}[[/td]]
+                      [[td]]${tp.learningRate}[[/td]]
+                      [[td]]${tp.activationFunction}[[/td]]
+                      [[td]]${tp.numHiddenLayers}[[/td]]
+                      [[td]]${tp.recencyDecay}[[/td]]
+                      [[td]]${tp.actual}[[/td]]
+                      [[td]]${tp.predicted}[[/td]]
+                      [[td]]${tp.avgMatches.toFixed(2)}[[/td]]
+                      [[td]]${tp.avgBestRank.toFixed(2)}[[/td]]
+                      [[td]]${(tp.f1*100).toFixed(2)}%[[/td]]
+                      [[td]]${tp.fiveMatches}[[/td]]
+                      [[td]]${tp.extraBall}[[/td]]
+                    [[/tr]]
+                  `;
+                });
+                document.getElementById('topPredictions').style.display = 'block';
+
+                topSettings.push({
+                  epochs: epochs,
+                  batchSize: batchSize,
+                  dropoutRate: dropoutRate,
+                  learningRate: learningRate,
+                  activationFunction: activationFunction,
+                  numHiddenLayers: numHiddenLayers,
+                  recencyDecay: recencyDecay,
+                  skipAlpha: skipAlpha, // NEW: capture SKIP_ALPHA for this configuration
+
+                  // SKAI metadata snapshot for this setting
+                  skaiWindowSize: skaiWindowSize,
+                  skaiSkipWindow: skaiSkipWindow,
+                  skaiFreqWeight: skaiFreqWeight,
+                  skaiSkipWeight: skaiSkipWeight,
+                  skaiHistWeight: skaiHistWeight,
+                  skaiPbFreqWeight: skaiPbFreqWeight,
+                  skaiPbSkipWeight: skaiPbSkipWeight,
+                  skaiPbHistWeight: skaiPbHistWeight,
+                  skaiBlendSkipPct: skaiBlendSkipPct,
+                  skaiBlendAiPct: skaiBlendAiPct,
+                  skaiSamplingTemp: skaiSamplingTemp,
+                  skaiDiversityPen: skaiDiversityPen,
+                  skaiGapScale: skaiGapScale,
+                  skaiTopNNumbers: skaiTopNNumbers,
+                  skaiTopNCombos: skaiTopNCombos,
+                  skaiRunMode: skaiRunMode,
+
+                  // Live performance metrics for this configuration
+                  accuracy: avgAcc,
+                  loss: avgLoss,
+                  precision: avgPrec,
+                  recall: avgRec,
+                  f1Score: avgF1,
+                  f1StdDev: stdF1,
+                  avgMatchCount: avgMatches,
+                  avgBestRank: avgRank,
+                  compositeScore: composite,
+                  maxMatchesAchieved: maxMatches,
+
+                  // NEW: tail metrics for display & debugging
+                  p3Tail: p3,
+                  p4Tail: p4,
+                  bonusTail: pBonus,
+
+                  // NEW: carry through actual & predicted (for 2-row “Best Settings” table)
+                  actual: actualStr,
+                  predicted: predictedStr,
+
+                  // NEW: explicit last-draw match counts for the narrative
+                  matchCountLast: matchedMainCountLast,
+                  matchExtraLast: matchedExtraCountLast
+                });
+
+                // Keep only the single best configuration for display
+                topSettings.sort(function (a, b) {
+                  return b.compositeScore - a.compositeScore;
+                });
+
+                var bestRow = topSettings.length ? topSettings[0] : null;
+                var setBody = document.getElementById('topSettingsBody');
+                setBody.innerHTML = '';
+
+                if (bestRow) {
+                  // Single, clean row of core hyperparameters for the table
+                  var html = ''
+                    + '[[tr]]'
+                    +   '[[td]]' + bestRow.epochs + '[[/td]]'
+                    +   '[[td]]' + bestRow.batchSize + '[[/td]]'
+                    +   '[[td]]' + bestRow.dropoutRate + '[[/td]]'
+                    +   '[[td]]' + bestRow.learningRate + '[[/td]]'
+                    +   '[[td]]' + bestRow.activationFunction + '[[/td]]'
+                    +   '[[td]]' + bestRow.numHiddenLayers + '[[/td]]'
+                    +   '[[td]]' + bestRow.recencyDecay + '[[/td]]'
+                    + '[[/tr]]';
+
+                  setBody.innerHTML = html;
+                  document.getElementById('topSettings').style.display = 'block';
+                }
+
+
+  // 2) after you've pushed into topSettings & sorted it, pick the best:
+  // If we have no settings yet, nothing to summarize or populate.
+  if (!topSettings.length) {
+    return;
+  }
+
+  const bestOverall = topSettings[0];
+  const bestSum = document.getElementById('bestSettingsSummary');
+  const bestTxt = document.getElementById('bestSettingsText');
+
+  const mcLast = bestOverall.matchCountLast || 0;
+  const meLast = bestOverall.matchExtraLast || 0;
+
+  bestSum.style.display = 'block';
+  bestTxt.innerHTML =
+    '[[em]]Best settings so far:[[/em]] Scoring profile [[strong]]' + scoringProfile + '[[/strong]]. ' +
+    'Matches are highlighted below so you can see exactly where SKAI lined up with the draw.[[br]][[br]]' +
+
+    '[[strong]]Performance snapshot[[/strong]][[br]]' +
+    'Actual draw: ' + (bestOverall.actual || 'N/A') + '[[br]]' +
+    'Predicted top 20: ' + (bestOverall.predicted || 'N/A') + '[[br]]' +
+    'Matched main numbers: [[strong]]' +
+      (mcLast > 0 ? mcLast : 'None') + '[[/strong]][[br]]' +
+    'Matched extra ball: [[strong]]' +
+      (meLast > 0 ? meLast : 'None') + '[[/strong]][[br]][[br]]' +
+
+    'Composite Score: [[strong]]' + bestOverall.compositeScore.toFixed(4) + '[[/strong]], ' +
+    'Accuracy: [[strong]]' + (bestOverall.accuracy * 100).toFixed(2) + '%[[/strong]], ' +
+    'Avg Matches: [[strong]]' + bestOverall.avgMatchCount.toFixed(2) + '[[/strong]], ' +
+    'Max Matches: [[strong]]' + bestOverall.maxMatchesAchieved + '[[/strong]], ' +
+    'F1 Std Dev: [[strong]]' + bestOverall.f1StdDev.toFixed(4) + '[[/strong]][[br]][[br]]' +
+
+    '[[em]]SKAI engine profile for this setting:[[/em]][[br]]' +
+    'Main weights (Freq / Skip / Hist): ' +
+      '[[strong]]' + bestOverall.skaiFreqWeight + '%[[/strong]] / ' +
+      '[[strong]]' + bestOverall.skaiSkipWeight + '%[[/strong]] / ' +
+      '[[strong]]' + bestOverall.skaiHistWeight + '%[[/strong]][[br]]' +
+    'Extra-ball weights (Freq / Skip / Hist): ' +
+      '[[strong]]' + bestOverall.skaiPbFreqWeight + '%[[/strong]] / ' +
+      '[[strong]]' + bestOverall.skaiPbSkipWeight + '%[[/strong]] / ' +
+      '[[strong]]' + bestOverall.skaiPbHistWeight + '%[[/strong]][[br]]' +
+    'Blend (Skip vs AI): ' +
+      '[[strong]]' + bestOverall.skaiBlendSkipPct + '% Skip[[/strong]] / ' +
+      '[[strong]]' + bestOverall.skaiBlendAiPct + '% AI[[/strong]][[br]]' +
+    'Sampling: ' +
+      'Temp [[strong]]' + bestOverall.skaiSamplingTemp + '[[/strong]], ' +
+      'Diversity [[strong]]' + bestOverall.skaiDiversityPen + '[[/strong]], ' +
+      'Gap scale [[strong]]' + bestOverall.skaiGapScale + '[[/strong]][[br]]' +
+    'Top-N: ' +
+      '[[strong]]' + bestOverall.skaiTopNNumbers + '[[/strong]] numbers, ' +
+      '[[strong]]' + bestOverall.skaiTopNCombos + '[[/strong]] combos[[br]]' +
+    'Run mode: [[strong]]' + bestOverall.skaiRunMode + '[[/strong]]';
+
+    +      '[[/ul]]'
+    +    '[[/div]]'
+    +  '[[/div]]'
+    + '[[/div]]';
+
+
+// Also populate the "Save these settings" form with this best profile
+(function () {
+  var form   = document.getElementById('skaiSaveSettingsForm');
+  var nameEl = document.getElementById('skaiSettingName');
+  var paramsEl = document.getElementById('skaiSettingsParams');
+
+  if (!form || !paramsEl) {
+    return; // save form not present on this page
+  }
+
+  // Build a compact, structured payload for reuse in SKAI or legacy AI
+  var payload = {
+    // Training hyperparameters
+    epochs:            bestOverall.epochs,
+    batchSize:         bestOverall.batchSize,
+    dropoutRate:       bestOverall.dropoutRate,
+    learningRate:      bestOverall.learningRate,
+    activationFunction: bestOverall.activationFunction,
+    numHiddenLayers:   bestOverall.numHiddenLayers,
+    recencyDecay:      bestOverall.recencyDecay,
+
+    // Scoring / profile
+    scoringProfile:     scoringProfile,
+    compositeScore:     bestOverall.compositeScore,
+    avgMatchCount:      bestOverall.avgMatchCount,
+    maxMatchesAchieved: bestOverall.maxMatchesAchieved,
+    skipAlpha:          bestOverall.skipAlpha, // NEW: persist SKIP_ALPHA with this profile
+    f1StdDev:           bestOverall.f1StdDev,
+
+    // SKAI engine weights & blend as used in this lab
+    skaiWindowSize:    bestOverall.skaiWindowSize || null,
+    skaiSkipWindow:    bestOverall.skaiSkipWindow || null,
+    skaiFreqWeight:    bestOverall.skaiFreqWeight,
+    skaiSkipWeight:    bestOverall.skaiSkipWeight,
+    skaiHistWeight:    bestOverall.skaiHistWeight,
+    skaiPbFreqWeight:  bestOverall.skaiPbFreqWeight,
+    skaiPbSkipWeight:  bestOverall.skaiPbSkipWeight,
+    skaiPbHistWeight:  bestOverall.skaiPbHistWeight,
+    skaiBlendSkipPct:  bestOverall.skaiBlendSkipPct,
+    skaiBlendAiPct:    bestOverall.skaiBlendAiPct,
+    skaiSamplingTemp:  bestOverall.skaiSamplingTemp,
+    skaiDiversityPen:  bestOverall.skaiDiversityPen,
+    skaiGapScale:      bestOverall.skaiGapScale,
+    skaiTopNNumbers:   bestOverall.skaiTopNNumbers,
+    skaiTopNCombos:    bestOverall.skaiTopNCombos,
+    skaiRunMode:       bestOverall.skaiRunMode
+  };
+
+  try {
+    paramsEl.value = JSON.stringify(payload);
+  } catch (e) {
+    // If JSON fails for some reason, keep form disabled rather than saving bad data
+    console.error('Failed to encode SKAI settings payload:', e);
+    paramsEl.value = '';
+  }
+
+  // If user has not typed a name yet, set a helpful default label
+  if (nameEl && !nameEl.value) {
+    var today = new Date();
+    var y = today.getFullYear();
+    var m = String(today.getMonth() + 1).padStart(2, '0');
+    var d = String(today.getDate()).padStart(2, '0');
+    var defaultLabel = 'SKAI Lab – ' + (window.currentLotteryName || 'Lottery') +
+                       ' – ' + y + '-' + m + '-' + d;
+    nameEl.value = defaultLabel;
+  }
+})();
+
+
+
+
+
+
+
+  // NEW: push the best SKAI profile back into the Settings card so you can see / copy it.
+  (function applyBestSkaiToInputs(best) {
+    function setVal(id, val) {
+      var el = document.getElementById(id);
+      if (!el) { return; }
+      if (val === undefined || val === null || val === '') { return; }
+      el.value = String(val);
+    }
+
+    // Window knobs
+    setVal('skaiWindowSize',   best.skaiWindowSize);
+    setVal('skaiSkipWindow',   best.skaiSkipWindow);
+
+    // Main-ball SKAI weights
+    setVal('skaiFreqWeight',   best.skaiFreqWeight);
+    setVal('skaiSkipWeight',   best.skaiSkipWeight);
+    setVal('skaiHistWeight',   best.skaiHistWeight);
+
+    // Extra-ball SKAI weights
+    setVal('skaiPbFreqWeight', best.skaiPbFreqWeight);
+    setVal('skaiPbSkipWeight', best.skaiPbSkipWeight);
+    setVal('skaiPbHistWeight', best.skaiPbHistWeight);
+
+    // Blend & sampling knobs
+    setVal('skaiBlendSkipPct',         best.skaiBlendSkipPct);
+    setVal('skaiBlendAiPct',           best.skaiBlendAiPct);
+    setVal('skaiSamplingTemperature',  best.skaiSamplingTemp);
+    setVal('skaiDiversityPenalty',     best.skaiDiversityPen);
+    setVal('skaiGapScale',             best.skaiGapScale);
+
+    // Output / Top N
+    setVal('skaiTopNNumbers',  best.skaiTopNNumbers);
+    setVal('skaiTopNCombos',   best.skaiTopNCombos);
+
+    // Run mode (select)
+    var modeSel = document.getElementById('skaiRunMode');
+    if (modeSel && best.skaiRunMode) {
+      modeSel.value = best.skaiRunMode;
+    }
+  })(bestOverall);
+
+
+  // 3) now build and send your result object—recencyDecay is defined here:
+  const result = {
+    epochs,
+    batchSize,
+    dropoutRate,
+    learningRate,
+    activationFunction,
+    numHiddenLayers,
+    recencyDecay,             
+    avgLoss,
+    avgAccuracy: avgAcc,
+    avgPrecision: avgPrec,
+    avgRecall: avgRec,
+    avgF1Score: avgF1,
+    f1StdDev: stdF1,
+    matchDistribution: matchDistribution.slice()
+  };
+  addRunAndPlotBest(result);
+} // ← end recencyDecay loop
+
+                } // ← end skipAlpha loop
+
+              } // ← end skaiWeightCombos loop
+
+                done++;
+                totalAnalyses = done;
+                totalAnalysesSpan.innerText = done;
+                updateProgress(done, totalPossible, startTime);
+                // Yield to UI
+                await tf.nextFrame();
+              }
+            }
+          }
+        }
+      }
+    }
+    currentEpochsSpan.innerText = '--';
+    currentBatchSizeSpan.innerText = '--';
+    currentDropoutRateSpan.innerText = '--';
+    currentLearningRateSpan.innerText = '--';
+    currentActivationFunctionSpan.innerText = '--';
+    currentHiddenLayersSpan.innerText = '--';
+
+    spinner.style.display = 'none';
+    loadingMsg.style.display = 'none';
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    pbC.style.display = 'none';
+    pbText.style.display = 'none';
+    epC.style.display = 'none';
+    epText.innerText = '';
+  }
+
+  async function runWorkflow(){
+    globalData = prepareData();
+    if(!globalData)return;
+    spinner.style.display = 'inline-block';
+    loadingMsg.style.display = 'block';
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    pbC.style.display = 'block';
+    pbText.style.display = 'block';
+
+    await runSinglePass();
+
+    if(globalData?.inputs) globalData.inputs.dispose();
+    if(globalData?.labels) globalData.labels.dispose();
+    globalData = null;
+  }
+
+startBtn.addEventListener('click', async () => {
+    await runWorkflow();
+});
+
+// -----------------------------------------
+// NEW: PRESET PROFILES
+// -----------------------------------------
+function applyPreset(values) {
+  document.getElementById('epochsRange').value        = values.epochs;
+  document.getElementById('batchSizes').value         = values.batch;
+  document.getElementById('dropoutRates').value       = values.dropout;
+  document.getElementById('learningRates').value      = values.lr;
+  document.getElementById('hiddenLayers').value       = values.layers;
+  document.getElementById('recencyDecayRates').value  = values.recency;
+  document.getElementById('skipAlphaValues').value    = values.skip;
+  
+  // Activation Functions Multi-Select
+  const afSel = document.getElementById('activationFunctions');
+  Array.from(afSel.options).forEach(o => o.selected = false);
+  values.activation.forEach(a => {
+    const opt = Array.from(afSel.options).find(x => x.value === a);
+    if (opt) opt.selected = true;
+  });
+}
+
+// Fast
+document.getElementById('presetFast').addEventListener('click', () => {
+  applyPreset({
+    epochs: "20-40",
+    batch: "4,8",
+    dropout: "0.1",
+    lr: "0.003",
+    activation: ["tanh"],
+    layers: "1",
+    recency: "1",
+    skip: "0.2"
+  });
+});
+
+// Balanced (default recommended)
+document.getElementById('presetBalanced').addEventListener('click', () => {
+  applyPreset({
+    epochs: "70-120",
+    batch: "4,8,16",
+    dropout: "0.2-0.3",
+    lr: "0.002",
+    activation: ["tanh"],
+    layers: "2-3",
+    recency: "0.7",
+    skip: "0.5"
+  });
+});
+
+// Deep Search
+document.getElementById('presetDeep').addEventListener('click', () => {
+  applyPreset({
+    epochs: "120-200",
+    batch: "4,8",
+    dropout: "0.3-0.4",
+    lr: "0.001",
+    activation: ["tanh","relu"],
+    layers: "3-4",
+    recency: "1",
+    skip: "1"
+  });
+});
+
+// ===============================
+// SKAI Engine Presets (Balanced / Conservative / Exploratory)
+// ===============================
+function applySkaiPreset(mode) {
+  // Resolve SKAI fields (may not all exist on every game)
+  var elWindow    = document.getElementById('skaiWindowSize');
+  var elSkipWin   = document.getElementById('skaiSkipWindow');
+  var elFreq      = document.getElementById('skaiFreqWeight');
+  var elSkip      = document.getElementById('skaiSkipWeight');
+  var elHist      = document.getElementById('skaiHistWeight');
+  var elPbFreq    = document.getElementById('skaiPbFreqWeight');
+  var elPbSkip    = document.getElementById('skaiPbSkipWeight');
+  var elPbHist    = document.getElementById('skaiPbHistWeight');
+  var elBlendSkip = document.getElementById('skaiBlendSkipPct');
+  var elBlendAi   = document.getElementById('skaiBlendAiPct');
+  var elTemp      = document.getElementById('skaiSamplingTemperature');
+  var elDiv       = document.getElementById('skaiDiversityPenalty');
+  var elGap       = document.getElementById('skaiGapScale');
+  var elTopNNums  = document.getElementById('skaiTopNNumbers');
+  var elTopNComb  = document.getElementById('skaiTopNCombos');
+  var elMode      = document.getElementById('skaiRunMode');
+
+  var cfg;
+
+  // NEW: support both string modes ("balanced", "conservative", "exploratory")
+  // and object-based presets passed by the Starter buttons.
+  if (mode && typeof mode === 'object') {
+    // Map the Starter object shape into the internal cfg structure.
+    cfg = {
+      windowDraws: (typeof mode.window === 'number' ? mode.window : 600),
+      skipWindow:  (typeof mode.skipWindow === 'number' ? mode.skipWindow : 240),
+      mainFreq:    (typeof mode.freq === 'number' ? mode.freq : 40),
+      mainSkip:    (typeof mode.skip === 'number' ? mode.skip : 40),
+      mainHist:    (typeof mode.hist === 'number' ? mode.hist : 20),
+      pbFreq:      (typeof mode.pbFreq === 'number' ? mode.pbFreq : 40),
+      pbSkip:      (typeof mode.pbSkip === 'number' ? mode.pbSkip : 40),
+      pbHist:      (typeof mode.pbHist === 'number' ? mode.pbHist : 20),
+      blendSkip:   (typeof mode.blendSkip === 'number' ? mode.blendSkip : 50),
+      blendAi:     (typeof mode.blendAi === 'number' ? mode.blendAi : 50),
+      temp:        (typeof mode.temp === 'number' ? mode.temp : 0.8),
+      diversity:   (typeof mode.div === 'number' ? mode.div : 0.10),
+      gapScale:    (typeof mode.gap === 'number' ? mode.gap : 1.0),
+      topNNumbers: (typeof mode.topNums === 'number' ? mode.topNums : 20),
+      topNCombos:  (typeof mode.topCombos === 'number' ? mode.topCombos : 60),
+      runMode:     (mode.mode || 'balanced')
+    };
+  } else {
+    // Original behavior: string-based preset selector.
+    switch (mode) {
+      case 'conservative':
+        cfg = {
+          windowDraws: 800,
+          skipWindow:  300,
+          mainFreq:    50,
+          mainSkip:    30,
+          mainHist:    20,
+          pbFreq:      50,
+          pbSkip:      30,
+          pbHist:      20,
+          blendSkip:   30,
+          blendAi:     70,
+          temp:        0.6,
+          diversity:   0.05,
+          gapScale:    0.8,
+          topNNumbers: 20,
+          topNCombos:  50,
+          runMode:     'conservative'
+        };
+        break;
+
+      case 'exploratory':
+        cfg = {
+          windowDraws: 500,
+          skipWindow:  200,
+          mainFreq:    30,
+          mainSkip:    50,
+          mainHist:    20,
+          pbFreq:      30,
+          pbSkip:      50,
+          pbHist:      20,
+          blendSkip:   60,
+          blendAi:     40,
+          temp:        1.0,
+          diversity:   0.15,
+          gapScale:    1.2,
+          topNNumbers: 22,
+          topNCombos:  80,
+          runMode:     'exploratory'
+        };
+        break;
+
+      case 'balanced':
+      default:
+        cfg = {
+          windowDraws: 600,
+          skipWindow:  240,
+          mainFreq:    40,
+          mainSkip:    40,
+          mainHist:    20,
+          pbFreq:      40,
+          pbSkip:      40,
+          pbHist:      20,
+          blendSkip:   50,
+          blendAi:     50,
+          temp:        0.8,
+          diversity:   0.10,
+          gapScale:    1.0,
+          topNNumbers: 20,
+          topNCombos:  60,
+          runMode:     'balanced'
+        };
+        break;
+    }
+  }
+
+  // Null-safe assignments: only write if the element exists
+  if (elWindow)    { elWindow.value    = cfg.windowDraws; }
+  if (elSkipWin)   { elSkipWin.value   = cfg.skipWindow; }
+  if (elFreq)      { elFreq.value      = cfg.mainFreq; }
+  if (elSkip)      { elSkip.value      = cfg.mainSkip; }
+  if (elHist)      { elHist.value      = cfg.mainHist; }
+  if (elPbFreq)    { elPbFreq.value    = cfg.pbFreq; }
+  if (elPbSkip)    { elPbSkip.value    = cfg.pbSkip; }
+  if (elPbHist)    { elPbHist.value    = cfg.pbHist; }
+  if (elBlendSkip) { elBlendSkip.value = cfg.blendSkip; }
+  if (elBlendAi)   { elBlendAi.value   = cfg.blendAi; }
+  if (elTemp)      { elTemp.value      = cfg.temp; }
+  if (elDiv)       { elDiv.value       = cfg.diversity; }
+  if (elGap)       { elGap.value       = cfg.gapScale; }
+  if (elTopNNums)  { elTopNNums.value  = cfg.topNNumbers; }
+  if (elTopNComb)  { elTopNComb.value  = cfg.topNCombos; }
+  if (elMode)      { elMode.value      = cfg.runMode; }
+}
+
+
+// Wire SKAI preset buttons, if present
+var btnSkaiBalanced     = document.getElementById('skaiPresetBalanced');
+var btnSkaiConservative = document.getElementById('skaiPresetConservative');
+var btnSkaiExploratory  = document.getElementById('skaiPresetExploratory');
+
+if (btnSkaiBalanced) {
+  btnSkaiBalanced.addEventListener('click', function () {
+    applySkaiPreset('balanced');
+  });
+}
+if (btnSkaiConservative) {
+  btnSkaiConservative.addEventListener('click', function () {
+    applySkaiPreset('conservative');
+  });
+}
+if (btnSkaiExploratory) {
+  btnSkaiExploratory.addEventListener('click', function () {
+    applySkaiPreset('exploratory');
+  });
+}
+
+
+// Balanced Starter
+document.getElementById('presetBalancedSkai').addEventListener('click', function () {
+  applySkaiPreset({
+    window: 600,
+    skipWindow: 200,
+    freq: 100, skip: 0, hist: 0,
+    pbFreq: 100, pbSkip: 0, pbHist: 0,
+    blendSkip: 50, blendAi: 50,
+    temp: 0.8, div: 0.10, gap: 1.0,
+    topNums: 20, topCombos: 50,
+    mode: 'balanced'
+  });
+});
+
+// Conservative Tight
+document.getElementById('presetConservativeSkai').addEventListener('click', function () {
+  applySkaiPreset({
+    window: 700,
+    skipWindow: 300,
+    freq: 100, skip: 0, hist: 0,
+    pbFreq: 100, pbSkip: 0, pbHist: 0,
+    blendSkip: 30, blendAi: 70,
+    temp: 0.5, div: 0.05, gap: 0.8,
+    topNums: 15, topCombos: 40,
+    mode: 'conservative'
+  });
+});
+
+// Exploratory Aggressive
+document.getElementById('presetExploratorySkai').addEventListener('click', function () {
+  applySkaiPreset({
+    window: 1000,
+    skipWindow: 150,
+    freq: 100, skip: 0, hist: 0,
+    pbFreq: 100, pbSkip: 0, pbHist: 0,
+    blendSkip: 65, blendAi: 35,
+    temp: 1.2, div: 0.25, gap: 1.3,
+    topNums: 25, topCombos: 70,
+    mode: 'exploratory'
+  });
+});
+
+  pauseBtn.addEventListener('click', () => {
+    isPaused = !isPaused;
+    pauseBtn.innerText = isPaused ? 'Resume' : 'Pause';
+  });
+  resetBtn.addEventListener('click', () => {
+    matchDistribution = [0,0,0,0,0,0];
+    updateMatchDistChart();
+    topPredictions = [];
+    document.getElementById('topPredictionsBody').innerHTML = '';
+    document.getElementById('topPredictions').style.display = 'none';
+
+    topSettings = [];
+    document.getElementById('topSettingsBody').innerHTML = '';
+    document.getElementById('topSettings').style.display = 'none';
+
+    allResults = [];
+    document.getElementById('bestSettingsSummary').style.display = 'none';
+    document.getElementById('bestSettingsText').innerHTML = '';
+
+    pbC.style.display = 'none'; pb.style.width = '0%'; pbText.innerText = '';
+    epC.style.display = 'none'; epBar.style.width = '0%'; epText.innerText = '';
+
+    totalAnalyses = 0; totalAnalysesSpan.innerText = 0;
+    totalPossibleAnalysesSpan.innerText = 0;
+    estimatedTimeSpan.innerText = '--';
+
+    currentEpochsSpan.innerText = '--';
+    currentBatchSizeSpan.innerText = '--';
+    currentDropoutRateSpan.innerText = '--';
+    currentLearningRateSpan.innerText = '--';
+    currentActivationFunctionSpan.innerText = '--';
+    currentHiddenLayersSpan.innerText = '--';
+
+    spinner.style.display = 'none';
+    loadingMsg.style.display = 'none';
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+
+    if(globalData?.inputs) globalData.inputs.dispose();
+    if(globalData?.labels) globalData.labels.dispose();
+    globalData = null;
+  });
+});
+[[/script]]
+[[/body]]
+[[/html]]
+{/source}
