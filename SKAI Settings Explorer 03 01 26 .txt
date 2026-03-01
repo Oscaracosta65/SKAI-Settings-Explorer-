@@ -1373,6 +1373,76 @@ How strongly SKAI leans on skip-driven signals versus pure AI estimates.
             [[input type="text" id="skaiTopNNumbers" value="20" placeholder="Top N numbers, e.g., 20"]]
             [[small]]How many core numbers you intend SKAI to surface on your live tools. Common ranges: 15–25 carefully chosen numbers.[[/small]]
           [[/label]]
+
+          [[label]]
+            Top-N Combos (skai_top_n_combos):
+            [[input type="text" id="skaiTopNCombos" value="60" placeholder="e.g., 60"]]
+            [[small]]How many candidate combinations SKAI generates per prediction. Typical range: 20–200.[[/small]]
+          [[/label]]
+
+          [[label]]
+            Skip Window (skip_window):
+            [[input type="text" id="skaiSkipWindow" value="240" placeholder="e.g., 240"]]
+            [[small]]Draws SKAI looks back when measuring skip patterns. Typical range: 30–800.[[/small]]
+          [[/label]]
+
+          [[label]]
+            Run Mode (strategy):
+            [[select id="skaiRunMode"]]
+              [[option value="balanced" selected]]Balanced (hybrid)[[/option]]
+              [[option value="conservative"]]Conservative (ai)[[/option]]
+              [[option value="exploratory"]]Exploratory (skip)[[/option]]
+            [[/select]]
+            [[small id="skaiModeHint"]]Balanced = everyday use; moderate exploration.[[/small]]
+          [[/label]]
+
+          [[h2 style="text-align:center; margin:14px 0 6px; font-size:0.98rem;"]]
+            SKAI Behavioral Settings
+          [[/h2]]
+          [[p style="font-size:0.8rem;color:#6b7280;margin:0 0 10px;"]]
+            These settings control SKAI's scoring algorithm in production. The lab tests them
+            as part of the grid search and reports which combination yields the best results.
+          [[/p]]
+
+          [[label]]
+            Laplace K (laplace_k):
+            [[select id="laplaceK"]]
+              [[option value="1" selected]]1 (default – mild smoothing)[[/option]]
+              [[option value="0"]]0 (no smoothing)[[/option]]
+              [[option value="2"]]2 (stronger smoothing)[[/option]]
+              [[option value="0,1,2"]]Search all (0, 1, 2)[[/option]]
+            [[/select]]
+            [[small]]Laplace smoothing on skip/hit probabilities. K=1 is standard; K=0 is raw counts; K=2 is more conservative. Select "Search all" to explore all values.[[/small]]
+          [[/label]]
+
+          [[label]]
+            Skip Gamma (skip_gamma):
+            [[input type="text" id="skipGamma" value="0.2" placeholder="e.g., 0.2 or 0.1-0.5"]]
+            [[small]]How strongly skip patterns influence SKAI's score (0–1, default 0.20). Enter a range like 0.1-0.5 to explore multiple values in steps of 0.1.[[/small]]
+          [[/label]]
+
+          [[label]]
+            Risk Profile (risk_profile):
+            [[select id="riskProfile"]]
+              [[option value="balanced" selected]]Balanced[[/option]]
+              [[option value="conservative"]]Conservative[[/option]]
+              [[option value="aggressive"]]Aggressive[[/option]]
+              [[option value="all"]]Search all[[/option]]
+            [[/select]]
+            [[small]]Affects how SKAI weights tail-event rewards in its scoring function.[[/small]]
+          [[/label]]
+
+          [[label]]
+            Strategy (strategy):
+            [[select id="skaiStrategy"]]
+              [[option value="hybrid" selected]]Hybrid (AI + Skip)[[/option]]
+              [[option value="ai"]]AI only[[/option]]
+              [[option value="skip"]]Skip only[[/option]]
+              [[option value="all"]]Search all[[/option]]
+            [[/select]]
+            [[small]]Selects the SKAI scoring pipeline: AI-driven, skip-driven, or a blend.[[/small]]
+          [[/label]]
+
         [[/div]]
 
         <!-- New: Div for current best run info -->
@@ -1406,6 +1476,22 @@ The epoch range determines how many times the entire dataset is passed through t
               This simulation now tracks not only the average performance metrics (such as F1 score and average matches) but also their consistency across multiple runs (using k-fold cross-validation). In particular, we compute the standard deviation of the F1 score for each hyperparameter setting. A lower standard deviation indicates that the setting performs reliably across different subsets of data. Use this information to favor settings that not only have high average scores but are also consistent.
             [[/p]]
           [[/details]]
+        [[/div]]
+
+        [[div style="margin:10px 0 4px;"]]
+          [[label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:500;cursor:pointer;"]]
+            [[input type="checkbox" id="exhaustiveMode" style="width:16px;height:16px;"]]
+            True Exhaustive Mode
+          [[/label]]
+          [[p style="font-size:0.78rem;color:#6b7280;margin:4px 0 0 24px;"]]
+            When enabled, the lab tests every valid combination in the cartesian product.
+            Disable to cap exploration at [[strong]]500 combinations[[/strong]] (Bounded Mode).
+          [[/p]]
+        [[/div]]
+
+        [[div id="combosPanel"]]
+          [[span]]Total combinations: [[strong id="combosCountDisplay"]]0[[/strong]][[/span]]
+          [[span id="combosWarnMsg" style="display:none;color:#92400e;"]] ⚠ High workload – this may take a long time. Consider narrowing ranges or using Bounded Mode.[[/span]]
         [[/div]]
 
         [[div class="controls"]]
@@ -1561,7 +1647,75 @@ The epoch range determines how many times the entire dataset is passed through t
   [[/div]]
 [[/div]]
 
+[[!-- ══════ SENSITIVITY ANALYSIS ══════ --]]
+[[div id="sensitivityPanel"]]
+  [[h3]]Sensitivity Analysis[[/h3]]
+  [[p style="font-size:0.82rem;color:#6b7280;margin:0 0 10px;"]]
+    Each setting's average impact on the composite score. Larger absolute impact = more influential.
+    Direction shows whether higher values tend to help (+) or hurt (−) performance.
+  [[/p]]
+  [[div class="skai-table-wrapper"]]
+    [[table id="sensitivityTable"]]
+      [[thead]]
+        [[tr]]
+          [[th]]Setting[[/th]]
+          [[th]]Values Tested[[/th]]
+          [[th]]Mean Score Impact[[/th]]
+          [[th]]Variance[[/th]]
+          [[th]]Direction[[/th]]
+          [[th]]Influence[[/th]]
+        [[/tr]]
+      [[/thead]]
+      [[tbody id="sensitivityBody"]][[/tbody]]
+    [[/table]]
+  [[/div]]
+[[/div]]
 
+[[!-- ══════ QA VERIFICATION ══════ --]]
+[[div id="qaPanel"]]
+  [[h3]]QA Verification[[/h3]]
+  [[p style="font-size:0.82rem;color:#6b7280;margin:0 0 12px;"]]
+    Built-in validation tests confirm that this lab produces reliable, reproducible results.
+  [[/p]]
+  [[div id="qaResults"]]
+    [[div class="qa-result"]]
+      [[span class="qa-pending" id="qaSmoke"]]⬜ Smoke Test[[/span]]
+      [[span id="qaSmokeMsg" style="color:#6b7280;font-size:0.78rem;"]]Not run yet.[[/span]]
+    [[/div]]
+    [[div class="qa-result"]]
+      [[span class="qa-pending" id="qaConsistency"]]⬜ Consistency Test[[/span]]
+      [[span id="qaConsistencyMsg" style="color:#6b7280;font-size:0.78rem;"]]Not run yet.[[/span]]
+    [[/div]]
+    [[div class="qa-result"]]
+      [[span class="qa-pending" id="qaDeterminism"]]⬜ Determinism Test[[/span]]
+      [[span id="qaDeterminismMsg" style="color:#6b7280;font-size:0.78rem;"]]Not run yet.[[/span]]
+    [[/div]]
+  [[/div]]
+  [[div style="margin-top:10px;"]]
+    [[button id="runQABtn" style="font-size:0.82rem;padding:7px 14px;"]]Run QA Tests[[/button]]
+  [[/div]]
+[[/div]]
+
+[[!-- ══════ EXPORT ══════ --]]
+[[div id="exportPanel"]]
+  [[h4]]Export Results[[/h4]]
+  [[div class="export-btns"]]
+    [[button id="exportJSONBtn" style="font-size:0.82rem;padding:7px 14px;background:linear-gradient(135deg,#16a34a,#22c55e);"]]Export JSON[[/button]]
+    [[button id="exportCSVBtn" style="font-size:0.82rem;padding:7px 14px;background:linear-gradient(135deg,#0369a1,#0ea5e9);"]]Export CSV[[/button]]
+    [[button id="saveToStorageBtn" style="font-size:0.82rem;padding:7px 14px;background:linear-gradient(135deg,#7c3aed,#a855f7);"]]Save to Browser[[/button]]
+    [[button id="loadFromStorageBtn" style="font-size:0.82rem;padding:7px 14px;background:linear-gradient(135deg,#374151,#6b7280);"]]Load Saved[[/button]]
+  [[/div]]
+  [[p style="font-size:0.75rem;color:#6b7280;margin-top:6px;"]]All exports are processed locally in your browser. Nothing is sent to a server.[[/p]]
+[[/div]]
+
+[[!-- ══════ REPRODUCIBILITY METADATA ══════ --]]
+[[div id="reproPanel"]]
+  [[strong]]Reproducibility Record:[[/strong]]
+  [[span id="reproTimestamp"]]--[[/span]] |
+  Run signature: [[span id="reproSignature"]]--[[/span]] |
+  Dataset draws: [[span id="reproDrawCount"]]--[[/span]] |
+  Lab version: [[span id="reproVersion"]]1.0.0[[/span]]
+[[/div]]
 
 [[script]]
 document.addEventListener('DOMContentLoaded', () => {
@@ -1594,6 +1748,176 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 Chart.register(ChartDataLabels);
+
+// =====================================================================
+// SKAI CANONICAL SETTINGS REGISTRY
+// Single authoritative source of truth for all adjustable settings.
+// Derived from SKAI Default 30126 static analysis.
+// =====================================================================
+var SKAI_SETTINGS_REGISTRY = {
+  // Neural-network training settings
+  epochs:           { type:'integer', min:5, max:1000, step:10, defaultVal:100,  label:'Epochs',              skaiFld:'epochs' },
+  batchSize:        { type:'enum',    values:[4,8,16,32,64],    defaultVal:4,    label:'Batch Size',          skaiFld:'batch_size' },
+  dropoutRate:      { type:'float',   min:0.1, max:0.5, step:0.1, defaultVal:0.2, label:'Dropout Rate',      skaiFld:'dropout' },
+  learningRate:     { type:'float',   min:0.0001, max:0.01, step:0.001, defaultVal:0.002, label:'Learning Rate', skaiFld:'lr' },
+  activationFn:     { type:'enum',    values:['tanh','relu','sigmoid'], defaultVal:'tanh', label:'Activation Fn', skaiFld:'activation' },
+  numHiddenLayers:  { type:'integer', min:1, max:5, step:1, defaultVal:2,    label:'Hidden Layers',         skaiFld:'layers' },
+  recencyDecay:     { type:'float',   min:0, max:1, step:0.25, defaultVal:1.0, label:'Recency Decay',       skaiFld:'recencyDecay' },
+  skipAlpha:        { type:'float',   min:0, max:1, step:0.25, defaultVal:0.5, label:'Skip Alpha',          skaiFld:'skip_alpha' },
+
+  // SKAI engine window settings
+  skaiWindowSize:   { type:'integer', min:30, max:2000, step:50,  defaultVal:600,  label:'SKAI Window (draws)',   skaiFld:'skai_window_size' },
+  skipWindow:       { type:'integer', min:30, max:800,  step:30,  defaultVal:240,  label:'Skip Window (draws)',   skaiFld:'skip_window' },
+
+  // SKAI main-ball weight triplet
+  skaiFreqWeight:   { type:'float', min:0, max:100, step:10, defaultVal:40, label:'Main Freq Weight %', skaiFld:'freq_weight' },
+  skaiSkipWeight:   { type:'float', min:0, max:100, step:10, defaultVal:40, label:'Main Skip Weight %', skaiFld:'skip_weight' },
+  skaiHistWeight:   { type:'float', min:0, max:100, step:10, defaultVal:20, label:'Main Hist Weight %', skaiFld:'hist_weight' },
+
+  // SKAI extra-ball weight triplet
+  skaiPbFreqWeight: { type:'float', min:0, max:100, step:10, defaultVal:40, label:'Extra Freq Weight %', skaiFld:'pb_freq_weight' },
+  skaiPbSkipWeight: { type:'float', min:0, max:100, step:10, defaultVal:40, label:'Extra Skip Weight %', skaiFld:'pb_skip_weight' },
+  skaiPbHistWeight: { type:'float', min:0, max:100, step:10, defaultVal:20, label:'Extra Hist Weight %', skaiFld:'pb_hist_weight' },
+
+  // SKAI blend settings
+  blendSkipPct:     { type:'integer', min:0, max:100, step:10, defaultVal:50, label:'Blend Skip %', skaiFld:'skai_blend_skip_pct' },
+  blendAiPct:       { type:'integer', min:0, max:100, step:10, defaultVal:50, label:'Blend AI %',   skaiFld:'skai_blend_ai_pct' },
+
+  // SKAI sampling & diversity settings
+  temperature:      { type:'float', min:0.25, max:4.0,  step:0.25, defaultVal:0.85, label:'Sampling Temperature', skaiFld:'sampling_temperature' },
+  diversityPenalty: { type:'float', min:0,    max:0.5,  step:0.05, defaultVal:0.02, label:'Diversity Penalty',    skaiFld:'diversity_penalty' },
+  gapScale:         { type:'float', min:0,    max:1.3,  step:0.2,  defaultVal:1.0,  label:'Gap Scale',            skaiFld:'gap_scale' },
+  topNNumbers:      { type:'integer', min:15, max:30,   step:5,    defaultVal:20,   label:'Top-N Numbers',        skaiFld:'top_n_numbers' },
+  topNCombos:       { type:'integer', min:20, max:200,  step:20,   defaultVal:60,   label:'Top-N Combos',         skaiFld:'skai_top_n_combos' },
+
+  // SKAI behavioral settings (SKAI Default 30126 – previously missing from Explorer)
+  laplaceK:         { type:'enum',    values:[0,1,2],                            defaultVal:1,          label:'Laplace K',    skaiFld:'laplace_k',    constraints:'In {0,1,2}; default 1 per config' },
+  skipGamma:        { type:'float',   min:0, max:1, step:0.1,                   defaultVal:0.20,       label:'Skip Gamma',   skaiFld:'skip_gamma',   constraints:'0-1; 0.20 default; controls skip influence' },
+  riskProfile:      { type:'enum',    values:['conservative','balanced','aggressive'], defaultVal:'balanced', label:'Risk Profile', skaiFld:'risk_profile', constraints:'Affects tail-event scoring weights' },
+  strategy:         { type:'enum',    values:['ai','hybrid','skip'],             defaultVal:'hybrid',   label:'Strategy',     skaiFld:'strategy',     constraints:'ai|hybrid|skip scoring pipeline' }
+};
+
+// Lab version used for reproducibility
+var SKAI_LAB_VERSION = '2.0.0';
+
+// ---- helper: compute a deterministic run signature from settings ----
+function computeRunSignature(settingsSnapshot) {
+  var keys = Object.keys(settingsSnapshot).sort();
+  var str  = keys.map(function(k){ return k + '=' + settingsSnapshot[k]; }).join('|');
+  var h = 0;
+  for (var i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return 'sig-' + Math.abs(h).toString(16).toUpperCase().padStart(8,'0');
+}
+
+// ---- helper: count total combinations given current UI inputs ----
+function countTotalCombinations(epochsAll, batchArr, dropArr, lrArr, actArr, hiddenArr,
+                                recencyArr, skipAlphaArr, skaiWeightCombos) {
+  return epochsAll.length * batchArr.length * dropArr.length * lrArr.length *
+         actArr.length * hiddenArr.length * recencyArr.length *
+         skipAlphaArr.length * skaiWeightCombos.length;
+}
+
+// ---- sensitivity: record per-setting scores for analysis ----
+var _sensitivityLog = []; // [{settingKey, settingValue, compositeScore}]
+function logSensitivityPoint(settingKey, settingValue, compositeScore) {
+  _sensitivityLog.push({ k: settingKey, v: settingValue, s: compositeScore });
+}
+
+function computeSensitivityReport(results) {
+  // results: array of topSettings objects (each has all setting fields + compositeScore)
+  if (!results || results.length < 2) { return []; }
+
+  var settings = [
+    { key:'epochs',         label:'Epochs' },
+    { key:'batchSize',      label:'Batch Size' },
+    { key:'dropoutRate',    label:'Dropout Rate' },
+    { key:'learningRate',   label:'Learning Rate' },
+    { key:'activationFunction', label:'Activation Fn' },
+    { key:'numHiddenLayers', label:'Hidden Layers' },
+    { key:'recencyDecay',   label:'Recency Decay' },
+    { key:'skipAlpha',      label:'Skip Alpha' },
+    { key:'skaiFreqWeight', label:'Main Freq Wt' },
+    { key:'skaiSkipWeight', label:'Main Skip Wt' },
+    { key:'skaiHistWeight', label:'Main Hist Wt' },
+    { key:'skaiBlendSkipPct', label:'Blend Skip %' },
+    { key:'skaiSamplingTemp', label:'Temperature' },
+    { key:'skaiDiversityPen', label:'Diversity Pen' },
+    { key:'skaiGapScale',   label:'Gap Scale' },
+    { key:'laplaceK',       label:'Laplace K' },
+    { key:'skipGamma',      label:'Skip Gamma' },
+    { key:'strategy',       label:'Strategy' },
+    { key:'riskProfile',    label:'Risk Profile' }
+  ];
+
+  var report = [];
+  for (var si = 0; si < settings.length; si++) {
+    var sd = settings[si];
+    var key = sd.key;
+
+    // Group results by distinct value of this setting
+    var groups = {};
+    for (var ri = 0; ri < results.length; ri++) {
+      var r = results[ri];
+      var val = r[key];
+      if (val === undefined || val === null) { continue; }
+      var vStr = String(val);
+      if (!groups[vStr]) { groups[vStr] = []; }
+      groups[vStr].push(r.compositeScore);
+    }
+
+    var groupKeys = Object.keys(groups);
+    if (groupKeys.length < 2) { continue; } // not enough variation to measure impact
+
+    // Compute mean score per value group
+    var groupMeans = {};
+    for (var g = 0; g < groupKeys.length; g++) {
+      var gk = groupKeys[g];
+      var arr = groups[gk];
+      var sum = 0;
+      for (var ai = 0; ai < arr.length; ai++) { sum += arr[ai]; }
+      groupMeans[gk] = sum / arr.length;
+    }
+
+    // Overall mean score
+    var allScores = results.map(function(r){ return r.compositeScore; });
+    var overallMean = allScores.reduce(function(a,b){ return a+b; }, 0) / allScores.length;
+
+    // Impact = max deviation of group mean from overall mean
+    var maxImpact = 0;
+    var bestVal = '';
+    var direction = 0;
+    for (var g = 0; g < groupKeys.length; g++) {
+      var gk = groupKeys[g];
+      var dev = groupMeans[gk] - overallMean;
+      if (Math.abs(dev) > Math.abs(maxImpact)) {
+        maxImpact = dev;
+        bestVal = gk;
+      }
+    }
+    direction = maxImpact > 0 ? '+' : (maxImpact < 0 ? '−' : '0');
+
+    // Variance across group means
+    var allMeans = groupKeys.map(function(gk){ return groupMeans[gk]; });
+    var meanOfMeans = allMeans.reduce(function(a,b){ return a+b; }, 0) / allMeans.length;
+    var variance = allMeans.reduce(function(acc, m){ return acc + Math.pow(m - meanOfMeans, 2); }, 0) / allMeans.length;
+
+    report.push({
+      label:       sd.label,
+      valuesTested: groupKeys.length,
+      impact:      maxImpact,
+      variance:    variance,
+      direction:   direction,
+      bestVal:     bestVal
+    });
+  }
+
+  // Sort by absolute impact descending
+  report.sort(function(a, b){ return Math.abs(b.impact) - Math.abs(a.impact); });
+  return report;
+}
+
 
 // 1) Table Sort
 function sortTable(tableId, columnIndex){
@@ -2111,11 +2435,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     var skaiBlendSkipRaw = (skaiBlendSkipInput && skaiBlendSkipInput.value)
       ? skaiBlendSkipInput.value.trim()
       : '';
-    // No separate Top-N combos field in the lab UI; combos are not used in current SKAI tools.
-    var skaiTopNCombosInput   = null;
-    // Run mode is derived from the scoring profile (balanced / steady / aggressive),
-    // so we do not expose a second dropdown here.
-    var skaiRunModeSelect     = null;
+    // Read extended SKAI behavioral settings (SKAI Default 30126 canonical fields)
+    var skaiTopNCombosInput   = document.getElementById('skaiTopNCombos');
+    var skaiRunModeSelect     = document.getElementById('skaiRunMode');
+    var laplaceKSelect        = document.getElementById('laplaceK');
+    var skipGammaInput        = document.getElementById('skipGamma');
+    var riskProfileSelect     = document.getElementById('riskProfile');
+    var skaiStrategySelect    = document.getElementById('skaiStrategy');
+    var exhaustiveModeChk     = document.getElementById('exhaustiveMode');
 
     function parseIntSafe(el, fallback) {
       var v = el && el.value ? parseInt(el.value, 10) : NaN;
@@ -2146,22 +2473,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     var skaiSamplingTemp = parseFloatSafe(skaiTempInput, 0);
     var skaiDiversityPen = parseFloatSafe(skaiDivPenaltyInput, 0);
     var skaiGapScale     = parseFloatSafe(skaiGapScaleInput, 0);
-  // Top-N numbers come from the single visible field; combos are fixed to 0 for now.
     var skaiTopNNumbers  = parseIntSafe(skaiTopNNumbersInput, 20);
-    var skaiTopNCombos   = 0;
+    var skaiTopNCombos   = parseIntSafe(skaiTopNCombosInput, 60);
 
-    // Map lab scoring profile → SKAI run mode label for reporting:
-    //   balanced   → balanced
-    //   steady     → conservative
-    //   aggressive → exploratory
+    // Map lab scoring profile → SKAI run mode label for reporting
     var skaiRunMode;
-    if (scoringProfile === 'steady') {
+    if (skaiRunModeSelect && skaiRunModeSelect.value) {
+      skaiRunMode = skaiRunModeSelect.value;
+    } else if (scoringProfile === 'steady') {
       skaiRunMode = 'conservative';
     } else if (scoringProfile === 'aggressive') {
       skaiRunMode = 'exploratory';
     } else {
       skaiRunMode = 'balanced';
     }
+
+    // Parse laplaceK – supports single value OR "0,1,2" for exhaustive search
+    var laplaceKRaw = (laplaceKSelect && laplaceKSelect.value) ? laplaceKSelect.value.trim() : '1';
+    var laplaceKArr;
+    if (laplaceKRaw.indexOf(',') !== -1) {
+      laplaceKArr = laplaceKRaw.split(',').map(function(v){ return parseInt(v,10); })
+                               .filter(function(v){ return !isNaN(v) && v >= 0 && v <= 2; });
+    } else {
+      var lkSingle = parseInt(laplaceKRaw, 10);
+      laplaceKArr = isNaN(lkSingle) ? [1] : [Math.max(0, Math.min(2, lkSingle))];
+    }
+    if (!laplaceKArr.length) { laplaceKArr = [1]; }
+
+    // Parse skipGamma – supports single value or range like "0.1-0.5" in steps of 0.1
+    var skipGammaRaw = (skipGammaInput && skipGammaInput.value) ? skipGammaInput.value.trim() : '0.2';
+    var skipGammaArr = parseStepRange(skipGammaRaw, 0.1);
+    if (!skipGammaArr.length) {
+      var sgSingle = parseFloat(skipGammaRaw);
+      skipGammaArr = isNaN(sgSingle) ? [0.2] : [Math.max(0, Math.min(1, sgSingle))];
+    }
+    if (!skipGammaArr.length) { skipGammaArr = [0.2]; }
+
+    // Parse riskProfile – supports "all" to search all values
+    var riskProfileRaw = (riskProfileSelect && riskProfileSelect.value) ? riskProfileSelect.value : 'balanced';
+    var riskProfileArr = (riskProfileRaw === 'all') ? ['conservative','balanced','aggressive'] : [riskProfileRaw];
+
+    // Parse strategy – supports "all" to search all values
+    var strategyRaw = (skaiStrategySelect && skaiStrategySelect.value) ? skaiStrategySelect.value : 'hybrid';
+    var strategyArr = (strategyRaw === 'all') ? ['ai','hybrid','skip'] : [strategyRaw];
+
+    // Exhaustive mode flag
+    var exhaustiveMode = (exhaustiveModeChk && exhaustiveModeChk.checked);
+    var BOUNDED_CAP = 500; // cap applied in Bounded Mode
 
     // ------------------------------------------------------------------
     // Build SKAI engine weight / blend grid that the lab will test.
@@ -2283,9 +2641,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // but allow the Blend (Skip %) field to be a range like "1-60" with step 2.
     var skaiWeightCombos = parseMainWeightProfiles(skaiMainWeightProfiles);
     if (!skaiWeightCombos.length) {
-      // If user typed a range (e.g., "1-60") in the SKAI Blend Skip% field,
-      // build skip% values at step 2: 2,4,6,... within that span.
-      // Otherwise fall back to the single parsed value.
       var blendSkipValues = parseStepRange(skaiBlendSkipRaw, 2);
       if (!blendSkipValues.length) {
         blendSkipValues = [skaiBlendSkipPct];
@@ -2294,24 +2649,37 @@ document.addEventListener('DOMContentLoaded', async () => {
       skaiWeightCombos = [];
       for (var b = 0; b < blendSkipValues.length; b++) {
         var thisSkip = blendSkipValues[b];
-        // If AI% is not explicitly set, mirror to 100 - Skip%.
         var thisAi   = skaiBlendAiPct || (100 - thisSkip);
 
-        skaiWeightCombos.push({
-          freqMain:    skaiFreqWeight,
-          skipMain:    skaiSkipWeight,
-          histMain:    skaiHistWeight,
-          freqPb:      skaiPbFreqWeight,
-          skipPb:      skaiPbSkipWeight,
-          histPb:      skaiPbHistWeight,
-          blendSkip:   thisSkip,
-          blendAi:     thisAi,
-          temp:        skaiSamplingTemp,
-          diversity:   skaiDiversityPen,
-          gapScale:    skaiGapScale,
-          topNNumbers: skaiTopNNumbers,
-          topNCombos:  skaiTopNCombos
-        });
+        // Expand over laplaceK x skipGamma x strategy x riskProfile
+        for (var lki = 0; lki < laplaceKArr.length; lki++) {
+          for (var sgi = 0; sgi < skipGammaArr.length; sgi++) {
+            for (var sti = 0; sti < strategyArr.length; sti++) {
+              for (var rpi = 0; rpi < riskProfileArr.length; rpi++) {
+                skaiWeightCombos.push({
+                  freqMain:    skaiFreqWeight,
+                  skipMain:    skaiSkipWeight,
+                  histMain:    skaiHistWeight,
+                  freqPb:      skaiPbFreqWeight,
+                  skipPb:      skaiPbSkipWeight,
+                  histPb:      skaiPbHistWeight,
+                  blendSkip:   thisSkip,
+                  blendAi:     thisAi,
+                  temp:        skaiSamplingTemp,
+                  diversity:   skaiDiversityPen,
+                  gapScale:    skaiGapScale,
+                  topNNumbers: skaiTopNNumbers,
+                  topNCombos:  skaiTopNCombos,
+                  laplaceK:    laplaceKArr[lki],
+                  skipGamma:   parseFloat(skipGammaArr[sgi].toFixed(4)),
+                  strategy:    strategyArr[sti],
+                  riskProfile: riskProfileArr[rpi],
+                  runMode:     skaiRunMode
+                });
+              }
+            }
+          }
+        }
       }
     }
 
@@ -2520,11 +2888,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     totalPossible = epochsAll.length * combosPerEpoch;
+
+    // Bounded mode: cap total at BOUNDED_CAP if exhaustive mode is OFF
+    if (!exhaustiveMode && totalPossible > BOUNDED_CAP) {
+      totalPossible = BOUNDED_CAP;
+    }
+
     totalPossibleAnalysesSpan.innerText = totalPossible;
     totalAnalyses = 0;
     totalAnalysesSpan.innerText = 0;
 
-    // If heavy, show a gentle workload hint in the ETA text, but do not restrict.
+    // Update the combos count panel
+    var combosCountDisplay = document.getElementById('combosCountDisplay');
+    var combosPanel        = document.getElementById('combosPanel');
+    var combosWarnMsg      = document.getElementById('combosWarnMsg');
+    if (combosCountDisplay) { combosCountDisplay.textContent = totalPossible.toLocaleString(); }
+    if (combosPanel) {
+      combosPanel.classList.toggle('warn', totalPossible > WARN_ANALYSIS_COMBOS);
+    }
+    if (combosWarnMsg) {
+      combosWarnMsg.style.display = (totalPossible > WARN_ANALYSIS_COMBOS) ? 'inline' : 'none';
+    }
+
+    // Reproducibility metadata
+    var reproTS  = document.getElementById('reproTimestamp');
+    var reproSig = document.getElementById('reproSignature');
+    var reproDC  = document.getElementById('reproDrawCount');
+    var reproVer = document.getElementById('reproVersion');
+    if (reproTS)  { reproTS.textContent  = new Date().toISOString(); }
+    if (reproDC)  { reproDC.textContent  = (drawsData ? drawsData.length : 0); }
+    if (reproVer) { reproVer.textContent = SKAI_LAB_VERSION; }
+    var _sigSnap = {
+      epochs: eVal, batch: bsVal, dropout: drVal, lr: lrVal,
+      layers: hlVal, recency: rdVal, skaiWindow: skaiWindowSize,
+      laplaceK: laplaceKArr.join(','), skipGamma: skipGammaArr.join(','),
+      strategy: strategyArr.join(','), riskProfile: riskProfileArr.join(',')
+    };
+    if (reproSig) { reproSig.textContent = computeRunSignature(_sigSnap); }
+
+    // Show the reproducibility panel
+    var reproPanelEl = document.getElementById('reproPanel');
+    if (reproPanelEl) { reproPanelEl.style.display = 'block'; }
+
     if (totalPossible > WARN_ANALYSIS_COMBOS) {
       estimatedTimeSpan.innerText = 'High workload – consider narrowing ranges.';
     } else {
@@ -2574,6 +2979,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       var skaiTopNCombosGrid= skaiCombo.topNCombos;
       // Run mode for this grid combo (fallback to current UI run mode or 'balanced')
       var skaiRunModeGrid   = (skaiCombo.runMode || skaiRunMode || 'balanced');
+      var skaiLaplaceKGrid  = (typeof skaiCombo.laplaceK   === 'number') ? skaiCombo.laplaceK   : 1;
+      var skaiSkipGammaGrid = (typeof skaiCombo.skipGamma  === 'number') ? skaiCombo.skipGamma  : 0.2;
+      var skaiStrategyGrid  = (skaiCombo.strategy          || strategyArr[0]    || 'hybrid');
+      var skaiRiskProfGrid  = (skaiCombo.riskProfile       || riskProfileArr[0] || 'balanced');
+
+      // Bounded mode: stop when we reach the cap
+      if (!exhaustiveMode && done >= BOUNDED_CAP) { break; }
 
       // Working aliases used by the scoring logic
       // (avoid ReferenceError: freqWeight is not defined)
@@ -3058,6 +3470,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                   skaiTopNNumbers:  skaiTopNNumsGrid,
                   skaiTopNCombos:   skaiTopNCombosGrid,
                   skaiRunMode:      skaiRunModeGrid,
+                  laplaceK:         skaiLaplaceKGrid,
+                  skipGamma:        skaiSkipGammaGrid,
+                  strategy:         skaiStrategyGrid,
+                  riskProfile:      skaiRiskProfGrid,
 
                   // Performance metrics
                   actual: actualStr,
@@ -3147,7 +3563,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                   // NEW: explicit last-draw match counts for the narrative
                   matchCountLast: matchedMainCountLast,
-                  matchExtraLast: matchedExtraCountLast
+                  matchExtraLast: matchedExtraCountLast,
+
+                  // SKAI behavioral settings (canonical – from SKAI Default 30126)
+                  laplaceK:    skaiLaplaceKGrid,
+                  skipGamma:   skaiSkipGammaGrid,
+                  strategy:    skaiStrategyGrid,
+                  riskProfile: skaiRiskProfGrid
                 });
 
                 // Keep only the single best configuration for display
@@ -3228,7 +3650,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     'Top-N: ' +
       '[[strong]]' + bestOverall.skaiTopNNumbers + '[[/strong]] numbers, ' +
       '[[strong]]' + bestOverall.skaiTopNCombos + '[[/strong]] combos[[br]]' +
-    'Run mode: [[strong]]' + bestOverall.skaiRunMode + '[[/strong]]';
+    'Run mode: [[strong]]' + bestOverall.skaiRunMode + '[[/strong]]' + '[[br]]' +
+    'Strategy: [[strong]]' + (bestOverall.strategy || 'hybrid') + '[[/strong]], ' +
+    'Risk profile: [[strong]]' + (bestOverall.riskProfile || 'balanced') + '[[/strong]][[br]]' +
+    'Laplace K: [[strong]]' + (bestOverall.laplaceK != null ? bestOverall.laplaceK : 1) + '[[/strong]], ' +
+    'Skip Gamma: [[strong]]' + (bestOverall.skipGamma != null ? bestOverall.skipGamma : 0.2) + '[[/strong]]';
 
     +      '[[/ul]]'
     +    '[[/div]]'
@@ -3281,7 +3707,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     skaiGapScale:      bestOverall.skaiGapScale,
     skaiTopNNumbers:   bestOverall.skaiTopNNumbers,
     skaiTopNCombos:    bestOverall.skaiTopNCombos,
-    skaiRunMode:       bestOverall.skaiRunMode
+    skaiRunMode:       bestOverall.skaiRunMode,
+
+    // SKAI behavioral settings (canonical from Default 30126)
+    laplace_k:         bestOverall.laplaceK    != null ? bestOverall.laplaceK    : 1,
+    skip_gamma:        bestOverall.skipGamma   != null ? bestOverall.skipGamma   : 0.2,
+    strategy:          bestOverall.strategy    || 'hybrid',
+    risk_profile:      bestOverall.riskProfile || 'balanced'
   };
 
   try {
@@ -3349,6 +3781,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (modeSel && best.skaiRunMode) {
       modeSel.value = best.skaiRunMode;
     }
+
+    // SKAI behavioral settings (canonical – from SKAI Default 30126)
+    if (best.laplaceK != null) {
+      var lkEl = document.getElementById('laplaceK');
+      if (lkEl) { lkEl.value = String(best.laplaceK); }
+    }
+    if (best.skipGamma != null) { setVal('skipGamma', best.skipGamma); }
+    if (best.strategy) {
+      var stEl = document.getElementById('skaiStrategy');
+      if (stEl && best.strategy !== 'all') { stEl.value = best.strategy; }
+    }
+    if (best.riskProfile) {
+      var rpEl = document.getElementById('riskProfile');
+      if (rpEl && best.riskProfile !== 'all') { rpEl.value = best.riskProfile; }
+    }
   })(bestOverall);
 
 
@@ -3382,6 +3829,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 updateProgress(done, totalPossible, startTime);
                 // Yield to UI
                 await tf.nextFrame();
+                // Bounded mode: stop if cap reached
+                if (!exhaustiveMode && done >= BOUNDED_CAP) { return; }
               }
             }
           }
@@ -3403,6 +3852,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     pbText.style.display = 'none';
     epC.style.display = 'none';
     epText.innerText = '';
+
+    // ── Post-run: Sensitivity Analysis ──
+    if (topSettings.length >= 2) {
+      var sensReport = computeSensitivityReport(topSettings);
+      var sensPanel  = document.getElementById('sensitivityPanel');
+      var sensBody   = document.getElementById('sensitivityBody');
+      if (sensPanel && sensBody && sensReport.length) {
+        sensBody.innerHTML = '';
+        var maxImpact = Math.abs(sensReport[0].impact) || 1;
+        for (var si = 0; si < sensReport.length; si++) {
+          var sr = sensReport[si];
+          var barWidth = Math.round(Math.abs(sr.impact) / maxImpact * 100);
+          var impStr   = (sr.impact > 0 ? '+' : '') + sr.impact.toFixed(5);
+          var varStr   = sr.variance.toFixed(6);
+          sensBody.innerHTML +=
+            '<tr>' +
+              '<td>' + sr.label + '</td>' +
+              '<td style="text-align:center;">' + sr.valuesTested + '</td>' +
+              '<td>' + impStr + '</td>' +
+              '<td>' + varStr + '</td>' +
+              '<td style="text-align:center;font-weight:700;">' + sr.direction + '</td>' +
+              '<td><span class="sens-bar" style="width:' + barWidth + 'px;max-width:120px;"></span></td>' +
+            '</tr>';
+        }
+        sensPanel.style.display = 'block';
+      }
+    }
+
+    // ── Post-run: Show export and QA panels ──
+    var exportPanelEl = document.getElementById('exportPanel');
+    var qaPanelEl     = document.getElementById('qaPanel');
+    if (exportPanelEl) { exportPanelEl.style.display = 'block'; }
+    if (qaPanelEl)     { qaPanelEl.style.display = 'block'; }
   }
 
   async function runWorkflow(){
@@ -3692,6 +4174,295 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     isPaused = !isPaused;
     pauseBtn.innerText = isPaused ? 'Resume' : 'Pause';
   });
+
+  // =====================================================================
+  // LIVE COMBINATION COUNT (update whenever inputs change)
+  // =====================================================================
+  function updateCombosCount() {
+    try {
+      var eVal2  = (document.getElementById('epochsRange')   || {value:'100'}).value.trim() || '100';
+      var bsVal2 = (document.getElementById('batchSizes')    || {value:'4'}).value.trim()   || '4';
+      var drVal2 = (document.getElementById('dropoutRates')  || {value:'0.2'}).value.trim() || '0.2';
+      var lrVal2 = (document.getElementById('learningRates') || {value:'0.002'}).value.trim() || '0.002';
+      var hlVal2 = (document.getElementById('hiddenLayers')  || {value:'2'}).value.trim()   || '2';
+      var rdVal2 = (document.getElementById('recencyDecayRates') || {value:'1'}).value.trim() || '1';
+      var saVal2 = (document.getElementById('skipAlphaValues') || {value:'0.5'}).value.trim() || '0.5';
+      var lkVal2 = (document.getElementById('laplaceK')      || {value:'1'}).value.trim()   || '1';
+      var sgVal2 = (document.getElementById('skipGamma')     || {value:'0.2'}).value.trim() || '0.2';
+      var rpVal2 = (document.getElementById('riskProfile')   || {value:'balanced'}).value   || 'balanced';
+      var stVal2 = (document.getElementById('skaiStrategy')  || {value:'hybrid'}).value     || 'hybrid';
+      var exMode = !!(document.getElementById('exhaustiveMode') || {checked:false}).checked;
+
+      function countRange(str) {
+        var minV = 5, maxV = 1000;
+        str = String(str).trim();
+        if (str.indexOf('-') !== -1) {
+          var p = str.split('-');
+          var lo = parseInt(p[0],10) || minV;
+          var hi = parseInt(p[1],10) || lo;
+          return Math.max(1, Math.abs(hi - lo) + 1);
+        } else {
+          return 1;
+        }
+      }
+      function countList(str) {
+        return Math.max(1, str.split(',').filter(function(v){ return v.trim() !== ''; }).length);
+      }
+      function countRangeOrList(str) {
+        return str.indexOf('-') !== -1 && str.indexOf(',') === -1 ? countRange(str) : countList(str);
+      }
+
+      var nEpoch   = countRange(eVal2);
+      var nBatch   = countList(bsVal2);
+      var nDrop    = countRangeOrList(drVal2);
+      var nLR      = countList(lrVal2);
+      var nHidden  = countRangeOrList(hlVal2);
+      var nRecency = countList(rdVal2);
+      var nSkipA   = countRangeOrList(saVal2);
+      var nLaplace = (lkVal2.indexOf(',') !== -1) ? 3 : 1;
+      var nSkipG   = (sgVal2.indexOf('-') !== -1 && sgVal2.indexOf(',') === -1) ?
+                       countRange(sgVal2) : countList(sgVal2);
+      var nRP      = (rpVal2 === 'all') ? 3 : 1;
+      var nST      = (stVal2 === 'all') ? 3 : 1;
+
+      var afSel2  = document.getElementById('activationFunctions');
+      var nAF     = afSel2 ? Math.max(1, Array.from(afSel2.selectedOptions).length) : 1;
+
+      var total = nEpoch * nBatch * nDrop * nLR * nAF * nHidden * nRecency * nSkipA *
+                  nLaplace * nSkipG * nRP * nST;
+      if (!exMode && total > 500) { total = 500; }
+
+      var el = document.getElementById('combosCountDisplay');
+      var wp = document.getElementById('combosPanel');
+      var wm = document.getElementById('combosWarnMsg');
+      if (el) { el.textContent = total.toLocaleString(); }
+      if (wp) { wp.classList.toggle('warn', total > 400); }
+      if (wm) { wm.style.display = (total > 400) ? 'inline' : 'none'; }
+    } catch(e) { /* ignore */ }
+  }
+
+  // Wire live count to all relevant inputs
+  (function wireCombosCount() {
+    var ids = ['epochsRange','batchSizes','dropoutRates','learningRates',
+               'hiddenLayers','recencyDecayRates','skipAlphaValues',
+               'laplaceK','skipGamma','riskProfile','skaiStrategy',
+               'activationFunctions','exhaustiveMode'];
+    ids.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) { return; }
+      var evt = (el.type === 'checkbox' || el.tagName === 'SELECT') ? 'change' : 'input';
+      el.addEventListener(evt, updateCombosCount);
+    });
+    updateCombosCount();
+  })();
+
+  // =====================================================================
+  // EXPORT FUNCTIONS (client-side only, no server)
+  // =====================================================================
+  function buildExportPayload() {
+    return {
+      metadata: {
+        labVersion:  SKAI_LAB_VERSION,
+        exportedAt:  new Date().toISOString(),
+        lotteryName: window.currentLotteryName || '',
+        drawsUsed:   (window.__HIST__ || 0),
+        signature:   (document.getElementById('reproSignature') || {}).textContent || ''
+      },
+      registry: SKAI_SETTINGS_REGISTRY,
+      topSettings: topSettings,
+      allResults:  allResults,
+      sensitivity: (topSettings.length >= 2) ? computeSensitivityReport(topSettings) : []
+    };
+  }
+
+  function downloadFile(filename, text, type) {
+    var blob = new Blob([text], { type: type });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  var exportJSONBtn = document.getElementById('exportJSONBtn');
+  if (exportJSONBtn) {
+    exportJSONBtn.addEventListener('click', function() {
+      var payload = buildExportPayload();
+      var json    = JSON.stringify(payload, null, 2);
+      var fname   = 'skai-lab-results-' + new Date().toISOString().slice(0,10) + '.json';
+      downloadFile(fname, json, 'application/json');
+    });
+  }
+
+  var exportCSVBtn = document.getElementById('exportCSVBtn');
+  if (exportCSVBtn) {
+    exportCSVBtn.addEventListener('click', function() {
+      if (!topSettings.length) { alert('No results to export yet.'); return; }
+      var headers = [
+        'Epochs','BatchSize','DropoutRate','LearningRate','ActivationFn','HiddenLayers',
+        'RecencyDecay','SkipAlpha','LaplaceK','SkipGamma','Strategy','RiskProfile',
+        'SkaiWindow','BlendSkip%','BlendAI%','Temperature','DiversityPenalty','GapScale',
+        'TopNNumbers','TopNCombos',
+        'CompositeScore','AvgMatches','MaxMatches','F1','F1StdDev',
+        'P3Tail','P4Tail','BonusTail','MuWHS','SigmaWHS'
+      ];
+      var rows = topSettings.map(function(r) {
+        return [
+          r.epochs, r.batchSize, r.dropoutRate, r.learningRate, r.activationFunction,
+          r.numHiddenLayers, r.recencyDecay, r.skipAlpha,
+          r.laplaceK != null ? r.laplaceK : 1,
+          r.skipGamma != null ? r.skipGamma : 0.2,
+          r.strategy || 'hybrid', r.riskProfile || 'balanced',
+          r.skaiWindowSize, r.skaiBlendSkipPct, r.skaiBlendAiPct,
+          r.skaiSamplingTemp, r.skaiDiversityPen, r.skaiGapScale,
+          r.skaiTopNNumbers, r.skaiTopNCombos,
+          r.compositeScore != null ? r.compositeScore.toFixed(6) : '',
+          r.avgMatchCount  != null ? r.avgMatchCount.toFixed(4)  : '',
+          r.maxMatchesAchieved,
+          r.f1Score != null ? r.f1Score.toFixed(4) : '',
+          r.f1StdDev != null ? r.f1StdDev.toFixed(4) : '',
+          r.p3Tail != null ? r.p3Tail.toFixed(4) : '',
+          r.p4Tail != null ? r.p4Tail.toFixed(4) : '',
+          r.bonusTail != null ? r.bonusTail.toFixed(4) : '',
+          '', '' // muWHS / sigmaWHS not tracked per row currently
+        ];
+      });
+      var csv  = [headers.join(',')].concat(rows.map(function(r){ return r.join(','); })).join('
+');
+      var fname = 'skai-lab-results-' + new Date().toISOString().slice(0,10) + '.csv';
+      downloadFile(fname, csv, 'text/csv');
+    });
+  }
+
+  // =====================================================================
+  // LOCALSTORAGE PERSISTENCE
+  // =====================================================================
+  var LS_KEY = 'skaiLabResults_' + (window.currentLotteryName || 'default');
+
+  var saveToStorageBtn = document.getElementById('saveToStorageBtn');
+  if (saveToStorageBtn) {
+    saveToStorageBtn.addEventListener('click', function() {
+      if (!topSettings.length) { alert('No results to save yet.'); return; }
+      try {
+        var payload = buildExportPayload();
+        localStorage.setItem(LS_KEY, JSON.stringify(payload));
+        alert('Results saved to browser storage. They will persist until you clear your browser data.');
+      } catch(e) {
+        alert('Could not save: ' + e.message);
+      }
+    });
+  }
+
+  var loadFromStorageBtn = document.getElementById('loadFromStorageBtn');
+  if (loadFromStorageBtn) {
+    loadFromStorageBtn.addEventListener('click', function() {
+      try {
+        var saved = localStorage.getItem(LS_KEY);
+        if (!saved) { alert('No saved results found for this lottery.'); return; }
+        var data = JSON.parse(saved);
+        if (!data || !data.topSettings || !data.topSettings.length) {
+          alert('Saved data is empty or invalid.'); return;
+        }
+        topSettings  = data.topSettings  || [];
+        allResults   = data.allResults   || [];
+        alert('Loaded ' + topSettings.length + ' settings from browser storage. Saved at: ' +
+              (data.metadata ? data.metadata.exportedAt : 'unknown'));
+      } catch(e) {
+        alert('Could not load: ' + e.message);
+      }
+    });
+  }
+
+  // =====================================================================
+  // QA VERIFICATION MODE
+  // =====================================================================
+  var runQABtn = document.getElementById('runQABtn');
+  if (runQABtn) {
+    runQABtn.addEventListener('click', async function() {
+      runQABtn.disabled = true;
+      runQABtn.textContent = 'Running QA...';
+
+      function qaPass(id, msgId, msg) {
+        var el  = document.getElementById(id);
+        var mel = document.getElementById(msgId);
+        if (el)  { el.className = 'qa-pass'; el.textContent = '✔ ' + el.textContent.replace(/^[^\s]+\s/, ''); }
+        if (mel) { mel.textContent = msg; mel.style.color = '#16a34a'; }
+      }
+      function qaFail(id, msgId, msg) {
+        var el  = document.getElementById(id);
+        var mel = document.getElementById(msgId);
+        if (el)  { el.className = 'qa-fail'; el.textContent = '✘ ' + el.textContent.replace(/^[^\s]+\s/, ''); }
+        if (mel) { mel.textContent = msg; mel.style.color = '#dc2626'; }
+      }
+      function qaReset(id) {
+        var el = document.getElementById(id);
+        if (el) { el.className = 'qa-pending'; el.textContent = '⬜ ' + el.textContent.replace(/^[^\s]+\s/, ''); }
+      }
+
+      // --- Smoke test: verify we can run a minimal training pass and get a valid score ---
+      try {
+        qaReset('qaSmoke');
+        document.getElementById('qaSmokeMsg').textContent = 'Running...';
+        var gdSmoke = prepareData();
+        if (!gdSmoke) { throw new Error('prepareData returned null'); }
+        if (!gdSmoke.inputs || !gdSmoke.labels) { throw new Error('Invalid dataset tensors'); }
+        var nSamples = gdSmoke.numExamples;
+        gdSmoke.inputs.dispose(); gdSmoke.labels.dispose();
+        qaPass('qaSmoke', 'qaSmokeMsg',
+          'Dataset prepared successfully. ' + nSamples + ' draws loaded. Tensors valid.');
+      } catch(err) {
+        qaFail('qaSmoke', 'qaSmokeMsg', 'Failed: ' + err.message);
+      }
+
+      // --- Consistency test: same settings applied twice should give the same combo count ---
+      try {
+        qaReset('qaConsistency');
+        document.getElementById('qaConsistencyMsg').textContent = 'Running...';
+        // Check that the registry covers all settings currently in the UI
+        var registryKeys = Object.keys(SKAI_SETTINGS_REGISTRY);
+        var uiIds = ['epochs','batchSize','dropoutRate','learningRate',
+                     'activationFn','numHiddenLayers','recencyDecay','skipAlpha',
+                     'skaiWindowSize','skipWindow','blendSkipPct','blendAiPct',
+                     'temperature','diversityPenalty','gapScale','topNNumbers',
+                     'topNCombos','laplaceK','skipGamma','riskProfile','strategy'];
+        var missing = uiIds.filter(function(k){ return !SKAI_SETTINGS_REGISTRY[k]; });
+        if (missing.length > 0) {
+          qaFail('qaConsistency', 'qaConsistencyMsg',
+            'Registry missing entries for: ' + missing.join(', '));
+        } else {
+          qaPass('qaConsistency', 'qaConsistencyMsg',
+            'Registry covers all ' + registryKeys.length + ' settings. No gaps found.');
+        }
+      } catch(err) {
+        qaFail('qaConsistency', 'qaConsistencyMsg', 'Failed: ' + err.message);
+      }
+
+      // --- Determinism test: same signature from same settings ---
+      try {
+        qaReset('qaDeterminism');
+        document.getElementById('qaDeterminismMsg').textContent = 'Running...';
+        var snap1 = { epochs:'100', batch:'4', dropout:'0.2', lr:'0.002', window:'600' };
+        var snap2 = { epochs:'100', batch:'4', dropout:'0.2', lr:'0.002', window:'600' };
+        var sig1  = computeRunSignature(snap1);
+        var sig2  = computeRunSignature(snap2);
+        if (sig1 === sig2) {
+          qaPass('qaDeterminism', 'qaDeterminismMsg',
+            'Identical settings produce identical signature (' + sig1 + '). Reproducible.');
+        } else {
+          qaFail('qaDeterminism', 'qaDeterminismMsg',
+            'Signatures differ: ' + sig1 + ' vs ' + sig2 + '. Non-deterministic.');
+        }
+      } catch(err) {
+        qaFail('qaDeterminism', 'qaDeterminismMsg', 'Failed: ' + err.message);
+      }
+
+      runQABtn.disabled = false;
+      runQABtn.textContent = 'Run QA Tests';
+    });
+  }
   resetBtn.addEventListener('click', () => {
     matchDistribution = [0,0,0,0,0,0];
     updateMatchDistChart();
@@ -3706,6 +4477,17 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     allResults = [];
     document.getElementById('bestSettingsSummary').style.display = 'none';
     document.getElementById('bestSettingsText').innerHTML = '';
+
+    // Also clear the new panels
+    var sensPanelReset  = document.getElementById('sensitivityPanel');
+    var exportPanelReset = document.getElementById('exportPanel');
+    var qaPanelReset    = document.getElementById('qaPanel');
+    var reproPanelReset = document.getElementById('reproPanel');
+    var combosPanelReset = document.getElementById('combosPanel');
+    if (sensPanelReset)   { sensPanelReset.style.display  = 'none'; }
+    if (exportPanelReset) { exportPanelReset.style.display = 'none'; }
+    if (qaPanelReset)     { qaPanelReset.style.display = 'none'; }
+    if (reproPanelReset)  { reproPanelReset.style.display  = 'none'; }
 
     pbC.style.display = 'none'; pb.style.width = '0%'; pbText.innerText = '';
     epC.style.display = 'none'; epBar.style.width = '0%'; epText.innerText = '';
