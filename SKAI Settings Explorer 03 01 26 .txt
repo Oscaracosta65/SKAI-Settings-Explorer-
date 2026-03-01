@@ -1048,6 +1048,172 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
     }
   }
       
+
+      /* ── Workflow steps strip ── */
+      .skai-steps {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 14px 0 18px;
+        padding: 10px 14px;
+        background: #f8fafc;
+        border: 1px solid var(--skai-border-subtle);
+        border-radius: var(--skai-radius-md);
+        font-size: 0.82rem;
+        color: var(--skai-text-muted);
+      }
+      .skai-step {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .skai-step-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--skai-primary);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .skai-step-sep {
+        color: var(--skai-border-strong);
+        font-size: 0.9rem;
+        margin: 0 4px;
+      }
+
+      /* ── Collapsible settings groups ── */
+      .skai-group {
+        margin-bottom: 14px;
+        border: 1px solid var(--skai-border-subtle);
+        border-radius: var(--skai-radius-md);
+        overflow: hidden;
+      }
+      .skai-group-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        background: linear-gradient(135deg, #eff6ff, #f9fafb);
+        cursor: pointer;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #111827;
+        user-select: none;
+        list-style: none;
+        border: none;
+        width: 100%;
+      }
+      .skai-group-header::-webkit-details-marker { display: none; }
+      .skai-group-header::after {
+        content: "▾";
+        margin-left: auto;
+        color: var(--skai-text-muted);
+        font-size: 0.85rem;
+        transition: transform 0.18s ease;
+      }
+      details.skai-group[open] > .skai-group-header::after {
+        transform: rotate(180deg);
+      }
+      .skai-group-badge {
+        display: inline-block;
+        padding: 2px 7px;
+        border-radius: var(--skai-radius-pill);
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+      .skai-group-badge-nn {
+        background: rgba(99,102,241,0.10);
+        color: var(--skai-accent);
+        border: 1px solid rgba(99,102,241,0.25);
+      }
+      .skai-group-badge-skai {
+        background: rgba(37,99,235,0.08);
+        color: var(--skai-primary-strong);
+        border: 1px solid rgba(37,99,235,0.20);
+      }
+      .skai-group-body {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        padding: 14px 14px 12px;
+        background: linear-gradient(135deg, #eef2ff 0%, #f9fafb 50%, #ecfeff 100%);
+      }
+      .skai-group-body label {
+        background: rgba(255,255,255,0.9);
+        border-radius: var(--skai-radius-md);
+        padding: 10px 10px 8px;
+        border: 1px solid rgba(148,163,184,0.6);
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        font-size: 0.82rem;
+        color: var(--skai-text-muted);
+      }
+      .skai-group-body label span.skai-field-name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #374151;
+      }
+      .skai-group-body input[type="text"],
+      .skai-group-body input[type="number"],
+      .skai-group-body select {
+        border-radius: 10px;
+        border: 1px solid var(--skai-border-subtle);
+        padding: 7px 10px;
+        font-size: 0.88rem;
+        background: #ffffff;
+        color: var(--skai-text-main);
+        outline: none;
+        transition: border-color 0.18s, box-shadow 0.18s, background-color 0.18s;
+      }
+      .skai-group-body input[type="text"]:focus,
+      .skai-group-body input[type="number"]:focus,
+      .skai-group-body select:focus {
+        border-color: var(--skai-primary);
+        box-shadow: 0 0 0 1px rgba(37,99,235,0.35);
+        background-color: #f9fafb;
+      }
+      .skai-group-body small {
+        font-size: 0.75rem;
+        color: var(--skai-text-muted);
+        line-height: 1.4;
+      }
+      .skai-group-body .skai-preset-row {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .skai-group-body .skai-preset-row button {
+        font-size: 0.78rem;
+        padding: 6px 12px;
+        box-shadow: 0 4px 10px rgba(37,99,235,0.2);
+      }
+      .skai-group-body .skai-preset-label {
+        font-size: 0.75rem;
+        color: var(--skai-text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      /* triple-input row (freq/skip/hist) */
+      .skai-triple {
+        display: flex;
+        gap: 6px;
+      }
+      .skai-triple input {
+        flex: 1;
+        min-width: 0;
+      }
+
     [[/style]]
 
 
@@ -1154,294 +1320,257 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       [[div class="skai-panel"]]
         [[h3]]Settings & Training Context[[/h3]]
         [[p class="skai-panel-subtitle"]]
-          Review what SKAI is currently training, then define the ranges this lab will explore
-          to find strong settings you can reuse in your live SKAI AI and Original AI tools.
+          Configure the ranges below, then click <strong>Start Search</strong>. The lab will test every combination and surface the best-performing settings you can copy into your live SKAI tools.
         [[/p]]
 
         [[div id="liveAnalysisData"]]
-          [[strong]]Current Analysis Parameters:[[/strong]][[br]]
-          Epochs: [[span id="currentEpochs"]]--[[/span]],
-          Batch Size: [[span id="currentBatchSize"]]--[[/span]],
-          Dropout Rate: [[span id="currentDropoutRate"]]--[[/span]],
-          Learning Rate: [[span id="currentLearningRate"]]--[[/span]],
-          Activation Function: [[span id="currentActivationFunction"]]--[[/span]],
-          Hidden Layers: [[span id="currentHiddenLayers"]]--[[/span]],
-          Recency Decay: [[span id="currentRecencyDecay"]]--[[/span]],
-          Skip Strength: [[span id="currentSkipAlpha"]]--[[/span]]
+          [[span style="font-weight:600;font-size:0.8rem;color:#374151;"]]Running:[[/span]]
+          [[span style="font-size:0.8rem;color:#6b7280;"]]
+            Epochs [[span id="currentEpochs"]]--[[/span]] ·
+            Batch [[span id="currentBatchSize"]]--[[/span]] ·
+            Dropout [[span id="currentDropoutRate"]]--[[/span]] ·
+            LR [[span id="currentLearningRate"]]--[[/span]] ·
+            Fn [[span id="currentActivationFunction"]]--[[/span]] ·
+            Layers [[span id="currentHiddenLayers"]]--[[/span]] ·
+            Decay [[span id="currentRecencyDecay"]]--[[/span]] ·
+            Skip [[span id="currentSkipAlpha"]]--[[/span]]
+          [[/span]]
         [[/div]]
 
-        [[div class="controls"]]
-          [[h2 style="text-align: center; margin-bottom: 20px;"]]Parameter Configuration[[/h2]]
+        [[div id="skaiSettingsBlock"]]
 
-          <!-- NEW: Preset Buttons -->
-          [[div style="text-align:center; width:100%; margin-bottom:15px;"]]
-            [[button type="button" id="presetFast"]]Fast Test[[/button]]
-            [[button type="button" id="presetBalanced"]]Balanced (Recommended)[[/button]]
-            [[button type="button" id="presetDeep"]]Deep Search[[/button]]
-          [[/div]]
-          [[label]]
-            Epoch Range:
-            [[input type="text" id="epochsRange" value="70-130" placeholder="e.g., 75-80"]]
-            [[small]]Enter a single value (e.g., 10) or a range (e.g., 70-100).[[/small]]
-            [[small]]Parameter Range 5 -1000).[[/small]]
-          [[/label]]
-          [[label]]
-            Batch Sizes:
-            [[input type="text" id="batchSizes" value="4" placeholder="e.g., 4, 8, 16"]]
-            [[small]]Enter one or more values (comma-separated) like 4, 6, 8, 12, 16, 32, 64[[/small]]
-          [[/label]]
-          [[label]]
-            Dropout Rates:
-            [[input type="text" id="dropoutRates" value="0.2" placeholder="e.g., 0.1, 0.2, 0.3, 0.4, 0.5"]]
-            [[small]]Enter a percentage or range (e.g., 0.1-0.5).[[/small]]
-          [[/label]]
-          [[label]]
-            Learning Rates:
-            [[input type="text" id="learningRates" value="0.002" placeholder="e.g., 0.001, 0.002, 0.003  etc"]]
-            [[small]]Enter one or more values (comma-separated) like 0.01, 0.001.[[/small]]
-          [[/label]]
-          [[label]]
-            Activation Functions:
-            [[select id="activationFunctions" multiple]]
-              [[option value="tanh" selected]]Tanh[[/option]]
-              [[option value="relu"]]ReLU[[/option]]
-              [[option value="sigmoid"]]Sigmoid[[/option]]
-            [[/select]]
-            [[small]]Select one or more activation functions to use (Ctrl+Click or Shift+Click to select multiple).[[/small]]
-          [[/label]]
-          [[label]]
-            Hidden Layers:
-            [[input type="text" id="hiddenLayers" value="2" placeholder="e.g., 1, 2, 3, 4, 5"]]
-            [[small]]Enter a single value or range (e.g., 1-5).[[/small]]
-          [[/label]]
-          [[label]]
-            Recency Decay:
-            [[input
-              type="text"
-              id="recencyDecayRates"
-              value="1"
-              placeholder="e.g., 0.5, 0.75, 1"
-            ]]
-            [[small]]Enter one or more decay values (comma-separated), e.g. 0.5, 0.75, 1.[[/small]]
-          [[/label]]
-
-          [[label]]
-            Main Weights (freq, skip, hist):
-            [[input
-              type="text"
-              id="mainWeightProfiles"
-              value="40,40,20"
-              placeholder="e.g., 40,40,20 | 50,30,20"
-            ]]
-            [[small]]
-              Enter one or more weight triplets as
-              freq,skip,hist separated by a vertical bar,
-              for example: 40,40,20 | 50,30,20.
-              Values are treated as percentages and will be normalized.
-            [[/small]]
-          [[/label]]
-
-          [[label]]
-            Skip Strength (SKIP_ALPHA):
-            [[input
-              type="text"
-              id="skipAlphaValues"
-              value="0.5"
-              placeholder="e.g., 0.2, 0.5, 1"
-            ]]
-            [[small]]Controls how strongly skip features influence the model (higher = more weight on skip patterns).[[/small]]
-          [[/label]]
-
-          [[label]]
-            Scoring Profile:
-            [[select id="scoringProfile"]]
-              [[option value="balanced" selected]]Balanced – hits & stability[[/option]]
-              [[option value="steady"]]Steady – more stability[[/option]]
-              [[option value="aggressive"]]Aggressive – chase bigger wins[[/option]]
-            [[/select]]
-            [[small]]Choose how “best settings” are evaluated: more stable, more aggressive, or a balanced mix.[[/small]]
-          [[/label]]
-
-          [[p style="font-size:0.9rem; font-weight:500; color:#374151; margin:16px 0 4px; text-align:center;"]]
-            Step 1: choose the SKAI engine profile you want to explore (weights, blend, sampling and Top-N).
-            Step 2: pick a Run Mode.
-            Step 3: run the lab – it will test combinations around your choices and surface the strongest-performing profiles for this lottery.
-          [[/p]]
-
-          [[h2 style="text-align: center; margin: 12px 0 8px;"]]
-            SKAI Engine Settings (Weights & Blend)
-          [[/h2]]
-
-          [[p style="font-size:0.82rem; color:#6b7280; margin:0 0 10px;"]]
-            These settings describe how SKAI weights history, skip behaviour and AI output when you later apply them on LottoExpert.net.
-            Think of the values you enter as the [[strong]]center of a search region[[/strong]]: the lab automatically explores
-            stronger or softer variations around these settings (wider or tighter depending on the Run Mode).
-            You may keep the suggested defaults or enter entirely custom profiles to explore different “SKAI personalities.”
-          [[/p]]
-
-          [[p style="font-size:0.78rem; color:#4b5563; margin:0 0 12px;"]]
-            [[strong]]Tip:[[/strong]] Run Mode changes only the [[em]]shape of the search[[/em]] around the values you enter:
-            Balanced = moderate exploration, Conservative = narrow & stability-focused, Exploratory = wider & more aggressive.
-            The lab never overwrites your entries — it only searches around them.
-          [[/p]]
-
-          [[p style="font-size:0.9rem; font-weight:500; color:#374151; margin:16px 0 4px; text-align:center;"]]
-            Step 1: choose the SKAI engine profile you want to explore (weights, blend, sampling and Top-N).
-            Step 2: pick a Run Mode.
-            Step 3: run the lab – it will test combinations around your choices and surface the strongest-performing profiles for this lottery.
-          [[/p]]
-
-
-          [[div style="text-align:center; margin:8px 0 16px;"]]
-            [[button type="button" id="presetBalancedSkai" style="margin:4px;" class="btn btn-primary"]]
-              Balanced Starter
-            [[/button]]
-            [[button type="button" id="presetConservativeSkai" style="margin:4px;" class="btn btn-secondary"]]
-              Conservative Tight
-            [[/button]]
-            [[button type="button" id="presetExploratorySkai" style="margin:4px;" class="btn btn-accent"]]
-              Exploratory Aggressive
-            [[/button]]
+          [[!-- ─── Workflow steps ─── --]]
+          [[div class="skai-steps"]]
+            [[span class="skai-step"]][[span class="skai-step-num"]]1[[/span]] Load a lottery above[[/span]]
+            [[span class="skai-step-sep"]]›[[/span]]
+            [[span class="skai-step"]][[span class="skai-step-num"]]2[[/span]] Configure settings below[[/span]]
+            [[span class="skai-step-sep"]]›[[/span]]
+            [[span class="skai-step"]][[span class="skai-step-num"]]3[[/span]] Click "Start Search"[[/span]]
+            [[span class="skai-step-sep"]]›[[/span]]
+            [[span class="skai-step"]][[span class="skai-step-num"]]4[[/span]] Review best settings in the results panel[[/span]]
           [[/div]]
 
-          [[label]]
-            SKAI Window Size (draws):
-            [[input type="text" id="skaiWindowSize" value="600" placeholder="e.g., 600"]]
-            [[small]]How many past draws SKAI considers in its main analysis window (e.g., 400–800 for Powerball-style games).[[/small]]
-          [[/label]]
+          [[!-- ─── Section A: Neural Network Training ─── --]]
+          [[details class="skai-group" open]]
+            [[summary class="skai-group-header"]]
+              [[span class="skai-group-badge skai-group-badge-nn"]]Neural Network[[/span]]
+              Training Settings
+            [[/summary]]
+            [[div class="skai-group-body"]]
 
-          [[label]]
-            Main-ball weights (Frequency / Skip / History %):
-            [[input type="text" id="skaiFreqWeight" value="40" placeholder="Freq e.g., 40"]]
-            [[input type="text" id="skaiSkipWeight" value="40" placeholder="Skip e.g., 40"]]
-            [[input type="text" id="skaiHistWeight" value="20" placeholder="Hist e.g., 20"]]
-            [[small]]
-              Recommended bands:
-              Balanced ≈ 30–50 / 30–50 / 10–30,
-              Conservative ≈ 60–80 / 10–30 / 10–30,
-              Exploratory ≈ 30–40 / 40–60 / 0–20.
-              Values do not need to sum exactly to 100; the lab normalizes them internally.
-            [[/small]]
-          [[/label]]
+              [[div class="skai-preset-row"]]
+                [[span class="skai-preset-label"]]Quick start:[[/span]]
+                [[button type="button" id="presetFast"]]Fast Test[[/button]]
+                [[button type="button" id="presetBalanced"]]Balanced[[/button]]
+                [[button type="button" id="presetDeep"]]Deep Search[[/button]]
+              [[/div]]
 
-          [[label]]
-            Extra-ball weights (Frequency / Skip / History %):
-            [[input type="text" id="skaiPbFreqWeight" value="40" placeholder="e.g., 40"]]
-            [[input type="text" id="skaiPbSkipWeight" value="40" placeholder="e.g., 40"]]
-            [[input type="text" id="skaiPbHistWeight" value="20" placeholder="e.g., 20"]]
-            [[small]]
-              Same idea as main weights, but for the extra ball. Typical ranges mirror the main-ball weights above.
-            [[/small]]
-          [[/label]]
+              [[label]]
+                [[span class="skai-field-name"]]Epochs[[/span]]
+                [[input type="text" id="epochsRange" value="70-130" placeholder="e.g., 100 or 70-130"]]
+                [[small]]How many full passes the model makes over the data. More epochs = more learning, but slower. Single value or range (5–1000).[[/small]]
+              [[/label]]
 
-          [[label]]
-[[label]]SKAI Blend (Skip % / AI %):[[/label]]
-[[input type="text"
-        id="skaiBlendSkipPct"
-        name="skaiBlendSkipPct"
-        value="100"
-        placeholder="e.g. 50 or 10-60"]]
-[[input type="number"
-        id="skaiBlendAiPct"
-        name="skaiBlendAiPct"
-        value="0"]]
-            [[small]]
-How strongly SKAI leans on skip-driven signals versus pure AI estimates.
-  You can enter either:
-  [[br]]• a single value (for example [[strong]]50[[/strong]] = 50% Skip / 50% AI), or
-  [[br]]• a range like [[strong]]10-60[[/strong]] to let the lab test 10%, 12%, 14%, …, 60% Skip in steps of 2.
-  If you leave the AI % box at 0, SKAI will automatically use [[em]]100 − Skip %[[/em]] for each test.
-  Balanced mode usually explores bands around 40–60% Skip; Conservative leans more to AI, Exploratory leans more to Skip.
+              [[label]]
+                [[span class="skai-field-name"]]Batch Size[[/span]]
+                [[input type="text" id="batchSizes" value="4" placeholder="e.g., 4, 8, 16"]]
+                [[small]]Draws processed per weight update. Smaller = finer updates, slower. Comma-separated to test multiple values (e.g., 4, 8, 16).[[/small]]
+              [[/label]]
 
-            [[/small]]
-          [[/label]]
+              [[label]]
+                [[span class="skai-field-name"]]Dropout Rate[[/span]]
+                [[input type="text" id="dropoutRates" value="0.2" placeholder="e.g., 0.2 or 0.1-0.4"]]
+                [[small]]Randomly disables neurons during training to prevent over-fitting. Range 0.1–0.5. Single value or range.[[/small]]
+              [[/label]]
 
-          [[label]]
-            Exploration behaviour:
-            [[input type="text" id="skaiSamplingTemperature" value="0.8" placeholder="Temperature, e.g., 0.8"]]
-            [[input type="text" id="skaiDiversityPenalty" value="0.1" placeholder="Diversity penalty, e.g., 0.1"]]
-            [[input type="text" id="skaiGapScale" value="1.0" placeholder="Gap scale, e.g., 1.0"]]
-            [[small]]
-              Controls how concentrated or exploratory SKAI’s sampling is when it builds combos.
-              Conservative mode keeps these closer to 0.5 / 0.0 / 1.0; Exploratory mode allows higher values for
-              more varied picks.
-            [[/small]]
-          [[/label]]
+              [[label]]
+                [[span class="skai-field-name"]]Learning Rate[[/span]]
+                [[input type="text" id="learningRates" value="0.002" placeholder="e.g., 0.001, 0.002"]]
+                [[small]]Step size for weight updates. Too high = unstable; too low = slow. Typical values: 0.001–0.005.[[/small]]
+              [[/label]]
 
-          [[label]]
-            Output format (Top N):
-            [[input type="text" id="skaiTopNNumbers" value="20" placeholder="Top N numbers, e.g., 20"]]
-            [[small]]How many core numbers you intend SKAI to surface on your live tools. Common ranges: 15–25 carefully chosen numbers.[[/small]]
-          [[/label]]
+              [[label]]
+                [[span class="skai-field-name"]]Activation Function[[/span]]
+                [[select id="activationFunctions" multiple]]
+                  [[option value="tanh" selected]]Tanh[[/option]]
+                  [[option value="relu"]]ReLU[[/option]]
+                  [[option value="sigmoid"]]Sigmoid[[/option]]
+                [[/select]]
+                [[small]]Nonlinear function inside each neuron. Tanh is the default. Ctrl+Click to select multiple and test them.[[/small]]
+              [[/label]]
 
-          [[label]]
-            Top-N Combos (skai_top_n_combos):
-            [[input type="text" id="skaiTopNCombos" value="60" placeholder="e.g., 60"]]
-            [[small]]How many candidate combinations SKAI generates per prediction. Typical range: 20–200.[[/small]]
-          [[/label]]
+              [[label]]
+                [[span class="skai-field-name"]]Hidden Layers[[/span]]
+                [[input type="text" id="hiddenLayers" value="2" placeholder="e.g., 2 or 1-4"]]
+                [[small]]Number of intermediate layers in the network. More layers = more capacity but higher over-fitting risk. Single value or range.[[/small]]
+              [[/label]]
 
-          [[label]]
-            Skip Window (skip_window):
-            [[input type="text" id="skaiSkipWindow" value="240" placeholder="e.g., 240"]]
-            [[small]]Draws SKAI looks back when measuring skip patterns. Typical range: 30–800.[[/small]]
-          [[/label]]
+              [[label]]
+                [[span class="skai-field-name"]]Recency Decay (0–1)[[/span]]
+                [[input type="text" id="recencyDecayRates" value="1" placeholder="e.g., 0.5, 0.75, 1"]]
+                [[small]]1 = use all history; 0.5 = use most recent 50% of draws only. Comma-separated to test multiple.[[/small]]
+              [[/label]]
 
-          [[label]]
-            Run Mode (strategy):
-            [[select id="skaiRunMode"]]
-              [[option value="balanced" selected]]Balanced (hybrid)[[/option]]
-              [[option value="conservative"]]Conservative (ai)[[/option]]
-              [[option value="exploratory"]]Exploratory (skip)[[/option]]
-            [[/select]]
-            [[small id="skaiModeHint"]]Balanced = everyday use; moderate exploration.[[/small]]
-          [[/label]]
+              [[label]]
+                [[span class="skai-field-name"]]Skip Strength (0–1)[[/span]]
+                [[input type="text" id="skipAlphaValues" value="0.5" placeholder="e.g., 0.2, 0.5, 1"]]
+                [[small]]How much weight skip-pattern features carry in the neural network. 0 = ignore; 1 = full weight.[[/small]]
+              [[/label]]
 
-          [[h2 style="text-align:center; margin:14px 0 6px; font-size:0.98rem;"]]
-            SKAI Behavioral Settings
-          [[/h2]]
-          [[p style="font-size:0.8rem;color:#6b7280;margin:0 0 10px;"]]
-            These settings control SKAI's scoring algorithm in production. The lab tests them
-            as part of the grid search and reports which combination yields the best results.
-          [[/p]]
+              [[label]]
+                [[span class="skai-field-name"]]Main Weight Profiles[[/span]]
+                [[input type="text" id="mainWeightProfiles" value="40,40,20" placeholder="e.g., 40,40,20 | 50,30,20"]]
+                [[small]]Frequency / Skip / History percentages for the main scoring triplet. Separate multiple profiles with |. Values are normalized automatically.[[/small]]
+              [[/label]]
 
-          [[label]]
-            Laplace K (laplace_k):
-            [[select id="laplaceK"]]
-              [[option value="1" selected]]1 (default – mild smoothing)[[/option]]
-              [[option value="0"]]0 (no smoothing)[[/option]]
-              [[option value="2"]]2 (stronger smoothing)[[/option]]
-              [[option value="0,1,2"]]Search all (0, 1, 2)[[/option]]
-            [[/select]]
-            [[small]]Laplace smoothing on skip/hit probabilities. K=1 is standard; K=0 is raw counts; K=2 is more conservative. Select "Search all" to explore all values.[[/small]]
-          [[/label]]
+              [[label]]
+                [[span class="skai-field-name"]]Scoring Profile[[/span]]
+                [[select id="scoringProfile"]]
+                  [[option value="balanced" selected]]Balanced – hits & stability[[/option]]
+                  [[option value="steady"]]Steady – prioritise consistency[[/option]]
+                  [[option value="aggressive"]]Aggressive – chase bigger wins[[/option]]
+                [[/select]]
+                [[small]]How the lab ranks configurations: balanced trades off average hits vs. volatility; aggressive rewards maximum hits.[[/small]]
+              [[/label]]
 
-          [[label]]
-            Skip Gamma (skip_gamma):
-            [[input type="text" id="skipGamma" value="0.2" placeholder="e.g., 0.2 or 0.1-0.5"]]
-            [[small]]How strongly skip patterns influence SKAI's score (0–1, default 0.20). Enter a range like 0.1-0.5 to explore multiple values in steps of 0.1.[[/small]]
-          [[/label]]
+            [[/div]]
+          [[/details]]
 
-          [[label]]
-            Risk Profile (risk_profile):
-            [[select id="riskProfile"]]
-              [[option value="balanced" selected]]Balanced[[/option]]
-              [[option value="conservative"]]Conservative[[/option]]
-              [[option value="aggressive"]]Aggressive[[/option]]
-              [[option value="all"]]Search all[[/option]]
-            [[/select]]
-            [[small]]Affects how SKAI weights tail-event rewards in its scoring function.[[/small]]
-          [[/label]]
+          [[!-- ─── Section B: SKAI Engine Settings ─── --]]
+          [[details class="skai-group"]]
+            [[summary class="skai-group-header"]]
+              [[span class="skai-group-badge skai-group-badge-skai"]]SKAI Engine[[/span]]
+              Scoring &amp; Blend Settings
+            [[/summary]]
+            [[div class="skai-group-body"]]
 
-          [[label]]
-            Strategy (strategy):
-            [[select id="skaiStrategy"]]
-              [[option value="hybrid" selected]]Hybrid (AI + Skip)[[/option]]
-              [[option value="ai"]]AI only[[/option]]
-              [[option value="skip"]]Skip only[[/option]]
-              [[option value="all"]]Search all[[/option]]
-            [[/select]]
-            [[small]]Selects the SKAI scoring pipeline: AI-driven, skip-driven, or a blend.[[/small]]
-          [[/label]]
+              [[p style="grid-column:1/-1;margin:0 0 6px;font-size:0.78rem;color:#4b5563;"]]
+                These mirror the live SKAI engine on LottoExpert.net.
+                The lab searches around the values you enter and reports which combination scores best.
+                Enter a range (e.g., [[strong]]10-60[[/strong]]) in any numeric field to search across it.
+              [[/p]]
+
+              [[div class="skai-preset-row"]]
+                [[span class="skai-preset-label"]]SKAI presets:[[/span]]
+                [[button type="button" id="presetBalancedSkai"]]Balanced[[/button]]
+                [[button type="button" id="presetConservativeSkai"]]Conservative[[/button]]
+                [[button type="button" id="presetExploratorySkai"]]Exploratory[[/button]]
+              [[/div]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Analysis Window (draws)[[/span]]
+                [[input type="text" id="skaiWindowSize" value="600" placeholder="e.g., 600"]]
+                [[small]]How many recent draws SKAI considers. Typical: 400–800. Smaller reacts faster; larger is more stable.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Skip Window (draws)[[/span]]
+                [[input type="text" id="skaiSkipWindow" value="240" placeholder="e.g., 240"]]
+                [[small]]How far back SKAI looks when calculating skip patterns. Typical: 30–800.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Main-ball Weights (Freq / Skip / Hist %)[[/span]]
+                [[div class="skai-triple"]]
+                  [[input type="text" id="skaiFreqWeight" value="40" placeholder="Freq"]]
+                  [[input type="text" id="skaiSkipWeight" value="40" placeholder="Skip"]]
+                  [[input type="text" id="skaiHistWeight" value="20" placeholder="Hist"]]
+                [[/div]]
+                [[small]]Relative importance of frequency, skip patterns, and historical recurrence for main balls. Normalised automatically.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Extra-ball Weights (Freq / Skip / Hist %)[[/span]]
+                [[div class="skai-triple"]]
+                  [[input type="text" id="skaiPbFreqWeight" value="40" placeholder="Freq"]]
+                  [[input type="text" id="skaiPbSkipWeight" value="40" placeholder="Skip"]]
+                  [[input type="text" id="skaiPbHistWeight" value="20" placeholder="Hist"]]
+                [[/div]]
+                [[small]]Same as above but applied to the bonus / extra ball only.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Blend – Skip % / AI %[[/span]]
+                [[div class="skai-triple"]]
+                  [[input type="text" id="skaiBlendSkipPct" name="skaiBlendSkipPct" value="100" placeholder="Skip %"]]
+                  [[input type="number" id="skaiBlendAiPct" name="skaiBlendAiPct" value="0" placeholder="AI %"]]
+                [[/div]]
+                [[small]]Portion of skip-driven vs. AI-driven signals in the final score. Skip + AI should sum to 100. Enter a range in Skip % (e.g., 10-60) to search.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Sampling – Temperature / Diversity / Gap[[/span]]
+                [[div class="skai-triple"]]
+                  [[input type="text" id="skaiSamplingTemperature" value="0.8" placeholder="Temp"]]
+                  [[input type="text" id="skaiDiversityPenalty" value="0.1" placeholder="Diversity"]]
+                  [[input type="text" id="skaiGapScale" value="1.0" placeholder="Gap"]]
+                [[/div]]
+                [[small]]Temperature: spread of picks (higher = more variety). Diversity: penalises repeated numbers. Gap: tunes spacing between picks.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Top-N Numbers[[/span]]
+                [[input type="text" id="skaiTopNNumbers" value="20" placeholder="e.g., 20"]]
+                [[small]]How many numbers SKAI outputs per prediction. Typical: 15–25.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Top-N Combos[[/span]]
+                [[input type="text" id="skaiTopNCombos" value="60" placeholder="e.g., 60"]]
+                [[small]]Candidate combinations generated before ranking. Typical: 20–200.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Run Mode[[/span]]
+                [[select id="skaiRunMode"]]
+                  [[option value="balanced" selected]]Balanced (AI + Skip hybrid)[[/option]]
+                  [[option value="conservative"]]Conservative (AI-leaning)[[/option]]
+                  [[option value="exploratory"]]Exploratory (skip-leaning)[[/option]]
+                [[/select]]
+                [[small id="skaiModeHint"]]Balanced suits most games. Conservative = fewer, steadier picks. Exploratory = wider, bolder picks.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Laplace Smoothing (K)[[/span]]
+                [[select id="laplaceK"]]
+                  [[option value="1" selected]]1 – mild smoothing (default)[[/option]]
+                  [[option value="0"]]0 – no smoothing (raw counts)[[/option]]
+                  [[option value="2"]]2 – stronger smoothing[[/option]]
+                  [[option value="0,1,2"]]Search all 3 values[[/option]]
+                [[/select]]
+                [[small]]Smooths probability estimates for numbers that appear rarely. K=1 is the safest default.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Skip Gamma (0–1)[[/span]]
+                [[input type="text" id="skipGamma" value="0.2" placeholder="e.g., 0.2 or 0.1-0.5"]]
+                [[small]]How strongly skip patterns influence SKAI's final score. Default 0.20. Enter a range (e.g., 0.1-0.5) to search in 0.1 steps.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Risk Profile[[/span]]
+                [[select id="riskProfile"]]
+                  [[option value="balanced" selected]]Balanced[[/option]]
+                  [[option value="conservative"]]Conservative[[/option]]
+                  [[option value="aggressive"]]Aggressive[[/option]]
+                  [[option value="all"]]Search all[[/option]]
+                [[/select]]
+                [[small]]Changes how SKAI rewards rare high-match outcomes. "Search all" tries all three and picks the best.[[/small]]
+              [[/label]]
+
+              [[label]]
+                [[span class="skai-field-name"]]Strategy[[/span]]
+                [[select id="skaiStrategy"]]
+                  [[option value="hybrid" selected]]Hybrid (AI + Skip blend)[[/option]]
+                  [[option value="ai"]]AI only[[/option]]
+                  [[option value="skip"]]Skip only[[/option]]
+                  [[option value="all"]]Search all[[/option]]
+                [[/select]]
+                [[small]]Which scoring pipeline to use. Hybrid is recommended. "Search all" tests all three.[[/small]]
+              [[/label]]
+
+            [[/div]]
+          [[/details]]
 
         [[/div]]
 
@@ -1449,53 +1578,143 @@ How strongly SKAI leans on skip-driven signals versus pure AI estimates.
         [[div id="currentBestRunLabel" style="display:none;"]][[/div]]
 
         [[div class="explanations"]]
-          [[h2]]Parameter Explanations[[/h2]]
-          [[p]]Understanding these parameters is crucial for tailoring the model to your needs. Expand each section to learn more.[[/p]]
+          [[h2]]Setting Explanations[[/h2]]
+          [[p]]Expand any section for a plain-language explanation of what that setting does and what values to try.[[/p]]
 
-          [[!-- Epoch Range Explanation --]]
           [[details]]
-            [[summary]][[strong]]Epoch Range[[/strong]][[/summary]]
-           [[p]]
-The epoch range determines how many times the entire dataset is passed through the model during the training process. Training a model involves adjusting its internal parameters (weights) to learn patterns from data and make accurate predictions. Each time the model sees the dataset and updates its parameters, it completes one "epoch."
-[[/p]]
-[[ul]]
-  [[li]]
-    [[strong]]What is an epoch?[[/strong]] An epoch represents one full pass of the training dataset through the model. During each pass:
-    [[ul]]
-      [[li]]The model processes the data, calculates predictions, and compares them with the correct answers.[[/li]]
-      [[li]]It uses the differences (errors) to adjust its parameters, improving its ability to predict correctly on future data.[[/li]]
-    [[/ul]]
-  [[/li]]
-...
-  [[/details]]
-
-          [[!-- NEW: Aggregate Performance & Consistency Explanation --]]
-          [[details]]
-            [[summary]][[strong]]Aggregate Performance & Consistency[[/strong]][[/summary]]
-            [[p]]
-              This simulation now tracks not only the average performance metrics (such as F1 score and average matches) but also their consistency across multiple runs (using k-fold cross-validation). In particular, we compute the standard deviation of the F1 score for each hyperparameter setting. A lower standard deviation indicates that the setting performs reliably across different subsets of data. Use this information to favor settings that not only have high average scores but are also consistent.
-            [[/p]]
+            [[summary]][[strong]]Epochs[[/strong]][[/summary]]
+            [[p]]One epoch = one full pass of all draw data through the model. More epochs give the model more chances to learn patterns, but too many can cause it to memorise noise (over-fitting). Start with 70–130 and widen the range only if scores plateau. Use a range like [[strong]]70-130[[/strong]] so the lab automatically tests each value.[[/p]]
           [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Batch Size[[/strong]][[/summary]]
+            [[p]]How many draws the model sees before updating its weights. Smaller batches (4, 8) produce more frequent updates and often better results on small datasets like lottery history. Larger batches (32, 64) are faster but may learn less precisely. Test several values at once with a comma-separated list.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Dropout Rate[[/strong]][[/summary]]
+            [[p]]Randomly turns off a fraction of neurons during each update to prevent the model from memorising the training data. Values 0.1–0.3 are typical. Higher values (0.4–0.5) add more regularisation but can under-train the model. Use a range like [[strong]]0.1-0.4[[/strong]] to let the lab search.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Learning Rate[[/strong]][[/summary]]
+            [[p]]Controls how large each weight update is. Too high (e.g., 0.01) causes erratic training; too low (e.g., 0.0001) makes it very slow. Values between 0.001 and 0.005 work well for most lottery datasets. The lab reduces the learning rate automatically when validation loss stops improving.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Activation Function[[/strong]][[/summary]]
+            [[p]]The non-linear function applied inside each neuron. [[strong]]Tanh[[/strong]] (default) maps outputs to −1…1 and tends to generalise well on lottery data. [[strong]]ReLU[[/strong]] is faster and works well with deeper networks. [[strong]]Sigmoid[[/strong]] is useful when outputs represent probabilities. Select multiple to have the lab compare them.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Hidden Layers[[/strong]][[/summary]]
+            [[p]]The number of intermediate layers stacked between input and output. More layers give the model more capacity to learn complex patterns, but increase the risk of over-fitting on small datasets. Start with 2 layers; add more only if the model consistently under-trains.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Recency Decay[[/strong]][[/summary]]
+            [[p]]Controls how much of the draw history is used. [[strong]]1[[/strong]] = use all available draws. [[strong]]0.5[[/strong]] = use only the most recent 50%. Lower values help the model focus on recent trends, but reduce the amount of training data. Try 0.75 and 1 together to see which performs better.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Skip Strength (Skip Alpha)[[/strong]][[/summary]]
+            [[p]]Scales the weight given to skip-pattern features in the neural network's input. [[strong]]0[[/strong]] = the model ignores skips entirely. [[strong]]1[[/strong]] = full weight. Start at 0.5 and explore lower values if skip patterns seem to add noise; raise it if the SKAI engine uses skip heavily in your live settings.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Main Weight Profiles (Freq / Skip / Hist)[[/strong]][[/summary]]
+            [[p]]Sets the relative importance of three signals: [[strong]]Frequency[[/strong]] (how often a number appeared), [[strong]]Skip[[/strong]] (how long since it last appeared), and [[strong]]History[[/strong]] (long-term recurrence). Enter a triplet like [[strong]]40,40,20[[/strong]]. Separate multiple profiles with a pipe (|) to compare them. Values are normalized, so 40/40/20 and 2/2/1 give the same result.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Scoring Profile[[/strong]][[/summary]]
+            [[p]]Determines how the lab ranks configurations after testing. [[strong]]Balanced[[/strong]] rewards a mix of average hits and low volatility. [[strong]]Steady[[/strong]] prioritises consistency (low variance). [[strong]]Aggressive[[/strong]] rewards peak match counts even at the cost of consistency. Choose based on your playing strategy.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]SKAI Analysis Window[[/strong]][[/summary]]
+            [[p]]How many of the most recent draws SKAI uses when building its frequency, skip, and history tables. Typical values: 400–800 for weekly games; 300–500 for daily games. A smaller window reacts faster to recent trends; a larger window is more stable over time.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]SKAI Skip Window[[/strong]][[/summary]]
+            [[p]]How far back SKAI looks when measuring "skip" – the number of draws since a number last appeared. Separate from the main analysis window. Typical: 30–800. A larger skip window captures more historical skip behaviour.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]SKAI Weights – Main &amp; Extra Ball[[/strong]][[/summary]]
+            [[p]]Three values that control how SKAI weighs frequency, skip patterns, and historical recurrence when it scores each candidate number. The [[strong]]main-ball[[/strong]] weights apply to the primary numbers; [[strong]]extra-ball[[/strong]] weights apply to the bonus number. Typical balanced split: 40 / 40 / 20. Use the SKAI presets as starting points.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Blend – Skip % / AI %[[/strong]][[/summary]]
+            [[p]]How much of the final SKAI score comes from skip-pattern signals versus the AI model's probability estimates. At 50 / 50 the two sources are equal. Enter a range in the Skip % field (e.g., [[strong]]10-60[[/strong]]) to have the lab test values 10, 12, 14 … 60 and find the best split for your lottery.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Sampling – Temperature, Diversity, Gap[[/strong]][[/summary]]
+            [[p]]Controls how SKAI generates and diversifies combos. [[strong]]Temperature[[/strong]]: higher values produce more varied picks (0.25–4.0, default 0.8). [[strong]]Diversity Penalty[[/strong]]: reduces the chance of repeating numbers across combos (0–0.5, default 0.1). [[strong]]Gap Scale[[/strong]]: adjusts the spacing between selected numbers (0–1.3, default 1.0).[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Top-N Numbers &amp; Combos[[/strong]][[/summary]]
+            [[p]][[strong]]Top-N Numbers[[/strong]]: how many core numbers SKAI outputs per prediction (typical: 15–25). [[strong]]Top-N Combos[[/strong]]: how many candidate combinations are generated before ranking (typical: 20–200). Higher combo counts improve ranking quality but slow down prediction slightly.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Run Mode[[/strong]][[/summary]]
+            [[p]]Chooses the SKAI scoring pipeline. [[strong]]Balanced[[/strong]] is a hybrid of AI and skip signals and works well for most games. [[strong]]Conservative[[/strong]] leans toward AI estimates for more stable picks. [[strong]]Exploratory[[/strong]] leans toward skip signals for bolder picks. The lab uses this to shape how broadly it searches around your input values.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Laplace Smoothing (K)[[/strong]][[/summary]]
+            [[p]]Adds a small constant K to all frequency counts before computing probabilities. This prevents numbers that have never appeared from receiving a score of zero. [[strong]]K=1[[/strong]] (default) gives a slight smoothing effect. [[strong]]K=0[[/strong]] uses raw counts. [[strong]]K=2[[/strong]] adds heavier smoothing and is useful when the dataset is small.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Skip Gamma[[/strong]][[/summary]]
+            [[p]]Controls how strongly skip patterns influence SKAI's composite score. The influence follows [[strong]]exp(skipGamma × tanh(z))[[/strong]], so larger values produce a more pronounced skip bias. Default 0.20. Values above 0.5 make SKAI strongly skip-driven; values near 0 effectively disable the skip signal.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Risk Profile[[/strong]][[/summary]]
+            [[p]]Adjusts the reward coefficients for tail outcomes (draws with 3+ or 4+ matches). [[strong]]Conservative[[/strong]] keeps the penalty for volatility high and rewards for tails low. [[strong]]Balanced[[/strong]] is a moderate trade-off. [[strong]]Aggressive[[/strong]] maximises rewards for high-match outcomes, accepting more variance.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Strategy[[/strong]][[/summary]]
+            [[p]]Selects the complete scoring pipeline. [[strong]]Hybrid[[/strong]] blends AI model scores with SKAI's skip/frequency analysis. [[strong]]AI only[[/strong]] ignores skip signals entirely. [[strong]]Skip only[[/strong]] ignores the AI model. Use [[strong]]Search all[[/strong]] to let the lab compare all three pipelines automatically.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]True Exhaustive Mode &amp; Bounded Mode[[/strong]][[/summary]]
+            [[p]]When [[strong]]True Exhaustive Mode[[/strong]] is checked, the lab tests every possible combination of all settings. The combination count shown above the run button reflects the total. For large searches this can be very slow — the live count updates as you change inputs. [[strong]]Bounded Mode[[/strong]] (default, unchecked) caps the search at 500 combinations for a quick result; use it to validate a setup before a full run.[[/p]]
+          [[/details]]
+
+          [[details]]
+            [[summary]][[strong]]Performance Metrics (F1, Avg Matches, Composite Score)[[/strong]][[/summary]]
+            [[p]]After each run the lab displays: [[strong]]Avg Matches[[/strong]] = average correct numbers per validation draw; [[strong]]F1 Score[[/strong]] = balance between precision and recall across all numbers; [[strong]]F1 Std Dev[[/strong]] = how consistent the F1 is across validation windows (lower is more stable); [[strong]]Composite Score[[/strong]] = the final ranking metric that combines all of the above according to the chosen Scoring Profile.[[/p]]
+          [[/details]]
+
         [[/div]]
 
-        [[div style="margin:10px 0 4px;"]]
-          [[label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:500;cursor:pointer;"]]
-            [[input type="checkbox" id="exhaustiveMode" style="width:16px;height:16px;"]]
+        [[div style="margin:10px 0 4px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"]]
+          [[label style="display:flex;align-items:center;gap:7px;font-size:0.84rem;font-weight:600;cursor:pointer;color:#111827;"]]
+            [[input type="checkbox" id="exhaustiveMode" style="width:15px;height:15px;"]]
             True Exhaustive Mode
           [[/label]]
-          [[p style="font-size:0.78rem;color:#6b7280;margin:4px 0 0 24px;"]]
-            When enabled, the lab tests every valid combination in the cartesian product.
-            Disable to cap exploration at [[strong]]500 combinations[[/strong]] (Bounded Mode).
-          [[/p]]
+          [[span style="font-size:0.76rem;color:#6b7280;"]]
+            Checked = test every combination. Unchecked = cap at 500 (Bounded Mode, faster).
+          [[/span]]
         [[/div]]
 
         [[div id="combosPanel"]]
-          [[span]]Total combinations: [[strong id="combosCountDisplay"]]0[[/strong]][[/span]]
-          [[span id="combosWarnMsg" style="display:none;color:#92400e;"]] ⚠ High workload – this may take a long time. Consider narrowing ranges or using Bounded Mode.[[/span]]
+          [[span]]Combinations to test: [[strong id="combosCountDisplay"]]0[[/strong]][[/span]]
+          [[span id="combosWarnMsg" style="display:none;color:#92400e;"]] ⚠ Large search – consider narrowing ranges or unchecking Exhaustive Mode.[[/span]]
         [[/div]]
 
         [[div class="controls"]]
-          [[button id="startPrediction"]][[strong]]Step 2 Search for Best Parameters[[/strong]][[/button]]
+          [[button id="startPrediction"]][[strong]]Start Search[[/strong]][[/button]]
           [[button id="pauseButton" disabled]]Pause[[/button]]
           [[button id="resetButton"]]Reset[[/button]]
         [[/div]]
