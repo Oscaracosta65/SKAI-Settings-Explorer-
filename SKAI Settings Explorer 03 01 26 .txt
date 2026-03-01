@@ -4964,8 +4964,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
           '', '' // muWHS / sigmaWHS not tracked per row currently
         ];
       });
-      var csv  = [headers.join(',')].concat(rows.map(function(r){ return r.join(','); })).join('
-');
+      var csv  = [headers.join(',')].concat(rows.map(function(r){ return r.join(','); })).join('\n');
       var fname = 'skai-lab-results-' + new Date().toISOString().slice(0,10) + '.csv';
       downloadFile(fname, csv, 'text/csv');
     });
