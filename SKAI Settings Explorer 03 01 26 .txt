@@ -1822,6 +1822,16 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
             [[p]]After each run the lab displays: [[strong]]Avg Matches[[/strong]] = average correct numbers per validation draw; [[strong]]F1 Score[[/strong]] = balance between precision and recall across all numbers; [[strong]]F1 Std Dev[[/strong]] = how consistent the F1 is across validation windows (lower is more stable); [[strong]]Composite Score[[/strong]] = the final ranking metric that combines all of the above according to the chosen Scoring Profile.[[/p]]
           [[/details]]
 
+          [[details]]
+            [[summary]][[strong]]Smart Narrowing – Pool, Rounds, Keep %, Seed[[/strong]][[/summary]]
+            [[p]]Smart Narrowing uses a tournament-style search ([[strong]]successive halving[[/strong]]) to find the best settings without testing every combination in full. It starts by sampling a random set of configurations (the [[strong]]Pool[[/strong]]), trains each one briefly, then at the end of every [[strong]]Round[[/strong]] keeps only the top [[strong]]Keep %[[/strong]] performers and discards the rest. The survivors train progressively longer each round until only the very best remain.[[/p]]
+            [[p]][[strong]]Pool[[/strong]] — the total number of random configurations sampled at the start. A larger pool explores more of the search space but takes longer. [[strong]]Good starting range: 80–200.[[/strong]] Increase to 300+ only if you suspect the best settings are in a narrow, hard-to-find region.[[/p]]
+            [[p]][[strong]]Rounds[[/strong]] — how many elimination rounds to run. Each round trains survivors longer and removes the weakest performers. [[strong]]3–5 rounds[[/strong]] is the practical sweet-spot. Fewer rounds finish faster but may not converge; more than 6 rarely helps unless the pool is very large.[[/p]]
+            [[p]][[strong]]Keep %[[/strong]] — what fraction of the current pool advances after each round. At [[strong]]25 %[[/strong]] (default), 75 % of configs are cut each round, so the field narrows quickly. Lower values (15–20 %) converge faster but risk losing good configs early. Higher values (35–40 %) are safer but slower.[[/p]]
+            [[p]][[strong]]Seed[[/strong]] — the random seed for sampling the initial pool. [[strong]]0 = auto[[/strong]] (a fresh seed is drawn from the timestamp every run — recommended for exploration). Enter a fixed number to reproduce a previous run exactly, which is useful for comparing changes to other settings.[[/p]]
+            [[p]][[strong]]Recommended starting point:[[/strong]] Pool 120 · Rounds 4 · Keep 25 % · Seed 0. If top scores vary widely between runs, increase the Pool. If results look good but you want to verify reproducibility, re-run with the same fixed Seed.[[/p]]
+          [[/details]]
+
         [[/div]]
 
         [[div style="margin:10px 0 4px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"]]
@@ -2426,7 +2436,7 @@ function updateLossChart() {
   yScale.max = yMax;
   lossChart.options.scales.y = yScale;
 
-  lossChart.update();
+  lossChart.update('none');
 }
 
 [[/script]]
@@ -2474,7 +2484,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   function updateMatchDistChart(){
     matchDistChart.data.datasets[0].data = matchDistribution.slice();
-    matchDistChart.update();
+    matchDistChart.update('none');
   }
 
   const startBtn = document.getElementById('startPrediction');
