@@ -1671,26 +1671,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
                 [[input type="hidden" id="skaiSkipWindow" value="240"]]
               [[/div]]
 
-              [[label]]
-                [[span class="skai-field-name"]]Main-ball Weights (Freq / Skip / Hist %)[[/span]]
-                [[div class="skai-triple"]]
-                  [[input type="text" id="skaiFreqWeight" value="40" placeholder="Freq"]]
-                  [[input type="text" id="skaiSkipWeight" value="40" placeholder="Skip"]]
-                  [[input type="text" id="skaiHistWeight" value="20" placeholder="Hist"]]
-                [[/div]]
-                [[small]]Relative importance of frequency, skip patterns, and historical recurrence for main balls. Normalised automatically.[[/small]]
-              [[/label]]
-
-              [[label]]
-                [[span class="skai-field-name"]]Extra-ball Weights (Freq / Skip / Hist %)[[/span]]
-                [[div class="skai-triple"]]
-                  [[input type="text" id="skaiPbFreqWeight" value="40" placeholder="Freq"]]
-                  [[input type="text" id="skaiPbSkipWeight" value="40" placeholder="Skip"]]
-                  [[input type="text" id="skaiPbHistWeight" value="20" placeholder="Hist"]]
-                [[/div]]
-                [[small]]Same as above but applied to the bonus / extra ball only.[[/small]]
-              [[/label]]
-
               [[div class="skai-slider-widget"]]
                 [[div class="skai-slider-header"]]
                   [[span class="skai-field-name"]]Blend – Skip % Range[[/span]]
@@ -1723,28 +1703,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
               [[/label]]
 
               [[label]]
-                [[span class="skai-field-name"]]Top-N Numbers[[/span]]
-                [[input type="text" id="skaiTopNNumbers" value="20" placeholder="e.g., 20"]]
-                [[small]]How many numbers SKAI outputs per prediction. Typical: 15–25.[[/small]]
-              [[/label]]
-
-              [[label]]
-                [[span class="skai-field-name"]]Top-N Combos[[/span]]
-                [[input type="text" id="skaiTopNCombos" value="60" placeholder="e.g., 60"]]
-                [[small]]Candidate combinations generated before ranking. Typical: 20–200.[[/small]]
-              [[/label]]
-
-              [[label]]
-                [[span class="skai-field-name"]]Run Mode[[/span]]
-                [[select id="skaiRunMode"]]
-                  [[option value="balanced" selected]]Balanced (AI + Skip hybrid)[[/option]]
-                  [[option value="conservative"]]Conservative (AI-leaning)[[/option]]
-                  [[option value="exploratory"]]Exploratory (skip-leaning)[[/option]]
-                [[/select]]
-                [[small id="skaiModeHint"]]Balanced suits most games. Conservative = fewer, steadier picks. Exploratory = wider, bolder picks.[[/small]]
-              [[/label]]
-
-              [[label]]
                 [[span class="skai-field-name"]]Laplace Smoothing (K)[[/span]]
                 [[select id="laplaceK"]]
                   [[option value="1" selected]]1 – mild smoothing (default)[[/option]]
@@ -1770,28 +1728,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
                 [[small]]How strongly skip patterns influence SKAI's final score. Drag to set search range (tested in 0.1 steps).[[/small]]
                 [[input type="hidden" id="skipGamma" value="0.2"]]
               [[/div]]
-
-              [[label]]
-                [[span class="skai-field-name"]]Risk Profile[[/span]]
-                [[select id="riskProfile"]]
-                  [[option value="balanced" selected]]Balanced[[/option]]
-                  [[option value="conservative"]]Conservative[[/option]]
-                  [[option value="aggressive"]]Aggressive[[/option]]
-                  [[option value="all"]]Search all[[/option]]
-                [[/select]]
-                [[small]]Changes how SKAI rewards rare high-match outcomes. "Search all" tries all three and picks the best.[[/small]]
-              [[/label]]
-
-              [[label]]
-                [[span class="skai-field-name"]]Strategy[[/span]]
-                [[select id="skaiStrategy"]]
-                  [[option value="hybrid" selected]]Hybrid (AI + Skip blend)[[/option]]
-                  [[option value="ai"]]AI only[[/option]]
-                  [[option value="skip"]]Skip only[[/option]]
-                  [[option value="all"]]Search all[[/option]]
-                [[/select]]
-                [[small]]Which scoring pipeline to use. Hybrid is recommended. "Search all" tests all three.[[/small]]
-              [[/label]]
 
             [[/div]]
           [[/details]]
@@ -1841,11 +1777,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
           [[/details]]
 
           [[details]]
-            [[summary]][[strong]]SKAI Weights – Main &amp; Extra Ball[[/strong]][[/summary]]
-            [[p]]Three values that control how SKAI weighs frequency, skip patterns, and historical recurrence when it scores each candidate number. The [[strong]]main-ball[[/strong]] weights apply to the primary numbers; [[strong]]extra-ball[[/strong]] weights apply to the bonus number. Typical balanced split: 40 / 40 / 20. Use the SKAI presets as starting points.[[/p]]
-          [[/details]]
-
-          [[details]]
             [[summary]][[strong]]Blend – Skip % / AI %[[/strong]][[/summary]]
             [[p]]How much of the final SKAI score comes from skip-pattern signals versus the AI model's probability estimates. At 50 / 50 the two sources are equal. Enter a range in the Skip % field (e.g., [[strong]]10-60[[/strong]]) to have the lab test values 10, 12, 14 … 60 and find the best split for your lottery.[[/p]]
           [[/details]]
@@ -1856,16 +1787,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
           [[/details]]
 
           [[details]]
-            [[summary]][[strong]]Top-N Numbers &amp; Combos[[/strong]][[/summary]]
-            [[p]][[strong]]Top-N Numbers[[/strong]]: how many core numbers SKAI outputs per prediction (typical: 15–25). [[strong]]Top-N Combos[[/strong]]: how many candidate combinations are generated before ranking (typical: 20–200). Higher combo counts improve ranking quality but slow down prediction slightly.[[/p]]
-          [[/details]]
-
-          [[details]]
-            [[summary]][[strong]]Run Mode[[/strong]][[/summary]]
-            [[p]]Chooses the SKAI scoring pipeline. [[strong]]Balanced[[/strong]] is a hybrid of AI and skip signals and works well for most games. [[strong]]Conservative[[/strong]] leans toward AI estimates for more stable picks. [[strong]]Exploratory[[/strong]] leans toward skip signals for bolder picks. The lab uses this to shape how broadly it searches around your input values.[[/p]]
-          [[/details]]
-
-          [[details]]
             [[summary]][[strong]]Laplace Smoothing (K)[[/strong]][[/summary]]
             [[p]]Adds a small constant K to all frequency counts before computing probabilities. This prevents numbers that have never appeared from receiving a score of zero. [[strong]]K=1[[/strong]] (default) gives a slight smoothing effect. [[strong]]K=0[[/strong]] uses raw counts. [[strong]]K=2[[/strong]] adds heavier smoothing and is useful when the dataset is small.[[/p]]
           [[/details]]
@@ -1873,16 +1794,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
           [[details]]
             [[summary]][[strong]]Skip Gamma[[/strong]][[/summary]]
             [[p]]Controls how strongly skip patterns influence SKAI's composite score. The influence follows [[strong]]exp(skipGamma × tanh(z))[[/strong]], so larger values produce a more pronounced skip bias. Default 0.20. Values above 0.5 make SKAI strongly skip-driven; values near 0 effectively disable the skip signal.[[/p]]
-          [[/details]]
-
-          [[details]]
-            [[summary]][[strong]]Risk Profile[[/strong]][[/summary]]
-            [[p]]Adjusts the reward coefficients for tail outcomes (draws with 3+ or 4+ matches). [[strong]]Conservative[[/strong]] keeps the penalty for volatility high and rewards for tails low. [[strong]]Balanced[[/strong]] is a moderate trade-off. [[strong]]Aggressive[[/strong]] maximises rewards for high-match outcomes, accepting more variance.[[/p]]
-          [[/details]]
-
-          [[details]]
-            [[summary]][[strong]]Strategy[[/strong]][[/summary]]
-            [[p]]Selects the complete scoring pipeline. [[strong]]Hybrid[[/strong]] blends AI model scores with SKAI's skip/frequency analysis. [[strong]]AI only[[/strong]] ignores skip signals entirely. [[strong]]Skip only[[/strong]] ignores the AI model. Use [[strong]]Search all[[/strong]] to let the lab compare all three pipelines automatically.[[/p]]
           [[/details]]
 
           [[details]]
@@ -2245,20 +2156,15 @@ function computeSensitivityReport(results) {
   if (!results || results.length < 2) { return []; }
 
   var settings = [
-    { key:'epochs',         label:'Epochs' },
-    { key:'recencyDecay',   label:'Recency Decay' },
-    { key:'skipAlpha',      label:'Skip Alpha' },
-    { key:'skaiFreqWeight', label:'Main Freq Wt' },
-    { key:'skaiSkipWeight', label:'Main Skip Wt' },
-    { key:'skaiHistWeight', label:'Main Hist Wt' },
+    { key:'epochs',           label:'Epochs' },
+    { key:'recencyDecay',     label:'Recency Decay' },
+    { key:'skipAlpha',        label:'Skip Alpha' },
     { key:'skaiBlendSkipPct', label:'Blend Skip %' },
     { key:'skaiSamplingTemp', label:'Temperature' },
     { key:'skaiDiversityPen', label:'Diversity Pen' },
-    { key:'skaiGapScale',   label:'Gap Scale' },
-    { key:'laplaceK',       label:'Laplace K' },
-    { key:'skipGamma',      label:'Skip Gamma' },
-    { key:'strategy',       label:'Strategy' },
-    { key:'riskProfile',    label:'Risk Profile' }
+    { key:'skaiGapScale',     label:'Gap Scale' },
+    { key:'laplaceK',         label:'Laplace K' },
+    { key:'skipGamma',        label:'Skip Gamma' }
   ];
 
   var report = [];
@@ -2555,39 +2461,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const currentRecencyDecaySpan = document.getElementById('currentRecencyDecay');
   const currentSkipAlphaSpan = document.getElementById('currentSkipAlpha');
 
-  // NEW: live hint for SKAI Run Mode
-  const skaiRunModeSelect = document.getElementById('skaiRunMode');
-  const skaiModeHintEl    = document.getElementById('skaiModeHint');
-
-  function updateSkaiModeHint(mode) {
-    if (!skaiModeHintEl) {
-      return;
-    }
-    switch (mode) {
-      case 'conservative':
-        skaiModeHintEl.textContent =
-          'Conservative = tighter, stability-focused exploration that stays close to the settings you enter.';
-        break;
-      case 'exploratory':
-        skaiModeHintEl.textContent =
-          'Exploratory = wider, more aggressive search around your settings to test bolder SKAI profiles.';
-        break;
-      case 'balanced':
-      default:
-        skaiModeHintEl.textContent =
-          'Balanced = everyday use; explores a moderate band around your settings for steady performance.';
-        break;
-    }
-  }
-
-  if (skaiRunModeSelect && skaiModeHintEl) {
-    // Initialize from current value
-    updateSkaiModeHint(skaiRunModeSelect.value || 'balanced');
-    // Update on change
-    skaiRunModeSelect.addEventListener('change', function () {
-      updateSkaiModeHint(skaiRunModeSelect.value || 'balanced');
-    });
-  }
 
   let globalData = null, isPaused = false;
   let allResults = [], topPredictions = [], topSettings = [];
@@ -2828,30 +2701,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Read SKAI engine settings (metadata only – used for reporting, not for training loops).
     var skaiWindowSizeInput   = document.getElementById('skaiWindowSize');
     var skaiSkipWindowInput   = document.getElementById('skaiSkipWindow');
-    var skaiFreqWeightInput   = document.getElementById('skaiFreqWeight');
-    var skaiSkipWeightInput   = document.getElementById('skaiSkipWeight');
-    var skaiHistWeightInput   = document.getElementById('skaiHistWeight');
-    var skaiPbFreqWeightInput = document.getElementById('skaiPbFreqWeight');
-    var skaiPbSkipWeightInput = document.getElementById('skaiPbSkipWeight');
-    var skaiPbHistWeightInput = document.getElementById('skaiPbHistWeight');
+    // Weight text inputs removed from UI – read values from the range sliders that replaced them.
+    // Extra-ball weights share the same sliders as main-ball weights (same Freq/Skip/Hist split).
+    var skaiFreqWeightInput   = document.getElementById('mainFreqRange');
+    var skaiSkipWeightInput   = document.getElementById('mainSkipRange');
+    var skaiHistWeightInput   = document.getElementById('mainHistRange');
+    var skaiPbFreqWeightInput = document.getElementById('mainFreqRange'); // same slider as main
+    var skaiPbSkipWeightInput = document.getElementById('mainSkipRange'); // same slider as main
+    var skaiPbHistWeightInput = document.getElementById('mainHistRange'); // same slider as main
     var skaiBlendSkipInput    = document.getElementById('skaiBlendSkipPct');
     var skaiBlendAiInput      = document.getElementById('skaiBlendAiPct');
     var skaiTempInput         = document.getElementById('skaiSamplingTemperature');
     var skaiDivPenaltyInput   = document.getElementById('skaiDiversityPenalty');
     var skaiGapScaleInput     = document.getElementById('skaiGapScale');
-    var skaiTopNNumbersInput  = document.getElementById('skaiTopNNumbers');
+    var skaiTopNNumbersInput  = null; // removed from UI; parseIntSafe(null, 20) → always 20
 
     // NEW: raw text for SKAI blend Skip% so we can support ranges like "1-60"
     var skaiBlendSkipRaw = (skaiBlendSkipInput && skaiBlendSkipInput.value)
       ? skaiBlendSkipInput.value.trim()
       : '';
     // Read extended SKAI behavioral settings (SKAI Default 30126 canonical fields)
-    var skaiTopNCombosInput   = document.getElementById('skaiTopNCombos');
-    var skaiRunModeSelect     = document.getElementById('skaiRunMode');
+    var skaiTopNCombosInput   = null; // removed from UI; parseIntSafe(null, 60) → always 60
+    var skaiRunModeSelect     = null; // removed from UI; runMode derived below from scoringProfile
     var laplaceKSelect        = document.getElementById('laplaceK');
     var skipGammaInput        = document.getElementById('skipGamma');
-    var riskProfileSelect     = document.getElementById('riskProfile');
-    var skaiStrategySelect    = document.getElementById('skaiStrategy');
+    var riskProfileSelect     = null; // removed from UI – fixed to 'balanced'
+    var skaiStrategySelect    = null; // removed from UI – fixed to 'hybrid'
     var exhaustiveModeChk     = document.getElementById('exhaustiveMode');
 
     function parseIntSafe(el, fallback) {
@@ -4189,16 +4064,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setVal('skaiWindowSize',   best.skaiWindowSize);
     setVal('skaiSkipWindow',   best.skaiSkipWindow);
 
-    // Main-ball SKAI weights
-    setVal('skaiFreqWeight',   best.skaiFreqWeight);
-    setVal('skaiSkipWeight',   best.skaiSkipWeight);
-    setVal('skaiHistWeight',   best.skaiHistWeight);
-
-    // Extra-ball SKAI weights
-    setVal('skaiPbFreqWeight', best.skaiPbFreqWeight);
-    setVal('skaiPbSkipWeight', best.skaiPbSkipWeight);
-    setVal('skaiPbHistWeight', best.skaiPbHistWeight);
-
     // Blend & sampling knobs
     setVal('skaiBlendSkipPct',         best.skaiBlendSkipPct);
     setVal('skaiBlendAiPct',           best.skaiBlendAiPct);
@@ -4206,30 +4071,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     setVal('skaiDiversityPenalty',     best.skaiDiversityPen);
     setVal('skaiGapScale',             best.skaiGapScale);
 
-    // Output / Top N
-    setVal('skaiTopNNumbers',  best.skaiTopNNumbers);
-    setVal('skaiTopNCombos',   best.skaiTopNCombos);
-
-    // Run mode (select)
-    var modeSel = document.getElementById('skaiRunMode');
-    if (modeSel && best.skaiRunMode) {
-      modeSel.value = best.skaiRunMode;
-    }
-
     // SKAI behavioral settings (canonical – from SKAI Default 30126)
     if (best.laplaceK != null) {
       var lkEl = document.getElementById('laplaceK');
       if (lkEl) { lkEl.value = String(best.laplaceK); }
     }
     if (best.skipGamma != null) { setVal('skipGamma', best.skipGamma); }
-    if (best.strategy) {
-      var stEl = document.getElementById('skaiStrategy');
-      if (stEl && best.strategy !== 'all') { stEl.value = best.strategy; }
-    }
-    if (best.riskProfile) {
-      var rpEl = document.getElementById('riskProfile');
-      if (rpEl && best.riskProfile !== 'all') { rpEl.value = best.riskProfile; }
-    }
   })(bestOverall);
 
 
@@ -4375,20 +4222,11 @@ function applySkaiPreset(mode) {
   // Resolve SKAI fields (may not all exist on every game)
   var elWindow    = document.getElementById('skaiWindowSize');
   var elSkipWin   = document.getElementById('skaiSkipWindow');
-  var elFreq      = document.getElementById('skaiFreqWeight');
-  var elSkip      = document.getElementById('skaiSkipWeight');
-  var elHist      = document.getElementById('skaiHistWeight');
-  var elPbFreq    = document.getElementById('skaiPbFreqWeight');
-  var elPbSkip    = document.getElementById('skaiPbSkipWeight');
-  var elPbHist    = document.getElementById('skaiPbHistWeight');
   var elBlendSkip = document.getElementById('skaiBlendSkipPct');
   var elBlendAi   = document.getElementById('skaiBlendAiPct');
   var elTemp      = document.getElementById('skaiSamplingTemperature');
   var elDiv       = document.getElementById('skaiDiversityPenalty');
   var elGap       = document.getElementById('skaiGapScale');
-  var elTopNNums  = document.getElementById('skaiTopNNumbers');
-  var elTopNComb  = document.getElementById('skaiTopNCombos');
-  var elMode      = document.getElementById('skaiRunMode');
 
   var cfg;
 
@@ -4399,20 +4237,11 @@ function applySkaiPreset(mode) {
     cfg = {
       windowDraws: (typeof mode.window === 'number' ? mode.window : 600),
       skipWindow:  (typeof mode.skipWindow === 'number' ? mode.skipWindow : 240),
-      mainFreq:    (typeof mode.freq === 'number' ? mode.freq : 40),
-      mainSkip:    (typeof mode.skip === 'number' ? mode.skip : 40),
-      mainHist:    (typeof mode.hist === 'number' ? mode.hist : 20),
-      pbFreq:      (typeof mode.pbFreq === 'number' ? mode.pbFreq : 40),
-      pbSkip:      (typeof mode.pbSkip === 'number' ? mode.pbSkip : 40),
-      pbHist:      (typeof mode.pbHist === 'number' ? mode.pbHist : 20),
       blendSkip:   (typeof mode.blendSkip === 'number' ? mode.blendSkip : 50),
       blendAi:     (typeof mode.blendAi === 'number' ? mode.blendAi : 50),
       temp:        (typeof mode.temp === 'number' ? mode.temp : 0.8),
       diversity:   (typeof mode.div === 'number' ? mode.div : 0.10),
-      gapScale:    (typeof mode.gap === 'number' ? mode.gap : 1.0),
-      topNNumbers: (typeof mode.topNums === 'number' ? mode.topNums : 20),
-      topNCombos:  (typeof mode.topCombos === 'number' ? mode.topCombos : 60),
-      runMode:     (mode.mode || 'balanced')
+      gapScale:    (typeof mode.gap === 'number' ? mode.gap : 1.0)
     };
   } else {
     // Original behavior: string-based preset selector.
@@ -4421,20 +4250,11 @@ function applySkaiPreset(mode) {
         cfg = {
           windowDraws: 800,
           skipWindow:  300,
-          mainFreq:    50,
-          mainSkip:    30,
-          mainHist:    20,
-          pbFreq:      50,
-          pbSkip:      30,
-          pbHist:      20,
           blendSkip:   30,
           blendAi:     70,
           temp:        0.6,
           diversity:   0.05,
-          gapScale:    0.8,
-          topNNumbers: 20,
-          topNCombos:  50,
-          runMode:     'conservative'
+          gapScale:    0.8
         };
         break;
 
@@ -4442,20 +4262,11 @@ function applySkaiPreset(mode) {
         cfg = {
           windowDraws: 500,
           skipWindow:  200,
-          mainFreq:    30,
-          mainSkip:    50,
-          mainHist:    20,
-          pbFreq:      30,
-          pbSkip:      50,
-          pbHist:      20,
           blendSkip:   60,
           blendAi:     40,
           temp:        1.0,
           diversity:   0.15,
-          gapScale:    1.2,
-          topNNumbers: 22,
-          topNCombos:  80,
-          runMode:     'exploratory'
+          gapScale:    1.2
         };
         break;
 
@@ -4464,20 +4275,11 @@ function applySkaiPreset(mode) {
         cfg = {
           windowDraws: 600,
           skipWindow:  240,
-          mainFreq:    40,
-          mainSkip:    40,
-          mainHist:    20,
-          pbFreq:      40,
-          pbSkip:      40,
-          pbHist:      20,
           blendSkip:   50,
           blendAi:     50,
           temp:        0.8,
           diversity:   0.10,
-          gapScale:    1.0,
-          topNNumbers: 20,
-          topNCombos:  60,
-          runMode:     'balanced'
+          gapScale:    1.0
         };
         break;
     }
@@ -4486,20 +4288,11 @@ function applySkaiPreset(mode) {
   // Null-safe assignments: only write if the element exists
   if (elWindow)    { elWindow.value    = cfg.windowDraws; }
   if (elSkipWin)   { elSkipWin.value   = cfg.skipWindow; }
-  if (elFreq)      { elFreq.value      = cfg.mainFreq; }
-  if (elSkip)      { elSkip.value      = cfg.mainSkip; }
-  if (elHist)      { elHist.value      = cfg.mainHist; }
-  if (elPbFreq)    { elPbFreq.value    = cfg.pbFreq; }
-  if (elPbSkip)    { elPbSkip.value    = cfg.pbSkip; }
-  if (elPbHist)    { elPbHist.value    = cfg.pbHist; }
   if (elBlendSkip) { elBlendSkip.value = cfg.blendSkip; }
   if (elBlendAi)   { elBlendAi.value   = cfg.blendAi; }
   if (elTemp)      { elTemp.value      = cfg.temp; }
   if (elDiv)       { elDiv.value       = cfg.diversity; }
   if (elGap)       { elGap.value       = cfg.gapScale; }
-  if (elTopNNums)  { elTopNNums.value  = cfg.topNNumbers; }
-  if (elTopNComb)  { elTopNComb.value  = cfg.topNCombos; }
-  if (elMode)      { elMode.value      = cfg.runMode; }
 
   // Sync sliders for the SKAI fields that now have range widgets
   if (typeof setSliderRange === 'function') {
@@ -4540,12 +4333,8 @@ document.getElementById('presetBalancedSkai').addEventListener('click', function
   applySkaiPreset({
     window: 600,
     skipWindow: 200,
-    freq: 100, skip: 0, hist: 0,
-    pbFreq: 100, pbSkip: 0, pbHist: 0,
     blendSkip: 50, blendAi: 50,
-    temp: 0.8, div: 0.10, gap: 1.0,
-    topNums: 20, topCombos: 50,
-    mode: 'balanced'
+    temp: 0.8, div: 0.10, gap: 1.0
   });
 });
 
@@ -4554,12 +4343,8 @@ document.getElementById('presetConservativeSkai').addEventListener('click', func
   applySkaiPreset({
     window: 700,
     skipWindow: 300,
-    freq: 100, skip: 0, hist: 0,
-    pbFreq: 100, pbSkip: 0, pbHist: 0,
     blendSkip: 30, blendAi: 70,
-    temp: 0.5, div: 0.05, gap: 0.8,
-    topNums: 15, topCombos: 40,
-    mode: 'conservative'
+    temp: 0.5, div: 0.05, gap: 0.8
   });
 });
 
@@ -4568,12 +4353,8 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
   applySkaiPreset({
     window: 1000,
     skipWindow: 150,
-    freq: 100, skip: 0, hist: 0,
-    pbFreq: 100, pbSkip: 0, pbHist: 0,
     blendSkip: 65, blendAi: 35,
-    temp: 1.2, div: 0.25, gap: 1.3,
-    topNums: 25, topCombos: 70,
-    mode: 'exploratory'
+    temp: 1.2, div: 0.25, gap: 1.3
   });
 });
 
@@ -4597,8 +4378,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       var saVal2 = (document.getElementById('skipAlphaValues') || {value:'0.5'}).value.trim() || '0.5';
       var lkVal2 = (document.getElementById('laplaceK')      || {value:'1'}).value.trim()   || '1';
       var sgVal2 = (document.getElementById('skipGamma')     || {value:'0.2'}).value.trim() || '0.2';
-      var rpVal2 = (document.getElementById('riskProfile')   || {value:'balanced'}).value   || 'balanced';
-      var stVal2 = (document.getElementById('skaiStrategy')  || {value:'hybrid'}).value     || 'hybrid';
+      // riskProfile and skaiStrategy removed from UI – always single values (no grid expansion)
       var exMode = !!(document.getElementById('exhaustiveMode') || {checked:false}).checked;
 
       function countRange(str) {
@@ -4630,8 +4410,8 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       var nLaplace = (lkVal2.indexOf(',') !== -1) ? 3 : 1;
       var nSkipG   = (sgVal2.indexOf('-') !== -1 && sgVal2.indexOf(',') === -1) ?
                        countRange(sgVal2) : countList(sgVal2);
-      var nRP      = (rpVal2 === 'all') ? 3 : 1;
-      var nST      = (stVal2 === 'all') ? 3 : 1;
+      var nRP = 1; // risk profile fixed – removed from UI
+      var nST = 1; // strategy fixed – removed from UI
 
       var nAF = 1; // fixed – activation function removed from UI
 
@@ -4670,7 +4450,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     var ids = ['epochsRange',
                'recencyDecayRates','skipAlphaValues',
                'mainFreqRange','mainSkipRange','mainHistRange',
-               'laplaceK','skipGamma','riskProfile','skaiStrategy',
+               'laplaceK','skipGamma',
                'exhaustiveMode'];
     ids.forEach(function(id) {
       var el = document.getElementById(id);
@@ -4727,23 +4507,18 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     exportCSVBtn.addEventListener('click', function() {
       if (!topSettings.length) { alert('No results to export yet.'); return; }
       var headers = [
-        'Epochs','BatchSize','DropoutRate','LearningRate','ActivationFn','HiddenLayers',
-        'RecencyDecay','SkipAlpha','LaplaceK','SkipGamma','Strategy','RiskProfile',
+        'Epochs','RecencyDecay','SkipAlpha','LaplaceK','SkipGamma',
         'SkaiWindow','BlendSkip%','BlendAI%','Temperature','DiversityPenalty','GapScale',
-        'TopNNumbers','TopNCombos',
         'CompositeScore','AvgMatches','MaxMatches','F1','F1StdDev',
         'P3Tail','P4Tail','BonusTail','MuWHS','SigmaWHS'
       ];
       var rows = topSettings.map(function(r) {
         return [
-          r.epochs, r.batchSize, r.dropoutRate, r.learningRate, r.activationFunction,
-          r.numHiddenLayers, r.recencyDecay, r.skipAlpha,
+          r.epochs, r.recencyDecay, r.skipAlpha,
           r.laplaceK != null ? r.laplaceK : 1,
           r.skipGamma != null ? r.skipGamma : 0.2,
-          r.strategy || 'hybrid', r.riskProfile || 'balanced',
           r.skaiWindowSize, r.skaiBlendSkipPct, r.skaiBlendAiPct,
           r.skaiSamplingTemp, r.skaiDiversityPen, r.skaiGapScale,
-          r.skaiTopNNumbers, r.skaiTopNCombos,
           r.compositeScore != null ? r.compositeScore.toFixed(6) : '',
           r.avgMatchCount  != null ? r.avgMatchCount.toFixed(4)  : '',
           r.maxMatchesAchieved,
@@ -4847,11 +4622,10 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
         document.getElementById('qaConsistencyMsg').textContent = 'Running...';
         // Check that the registry covers all settings currently in the UI
         var registryKeys = Object.keys(SKAI_SETTINGS_REGISTRY);
-        var uiIds = ['epochs','batchSize','dropoutRate','learningRate',
-                     'activationFn','numHiddenLayers','recencyDecay','skipAlpha',
+        var uiIds = ['epochs','recencyDecay','skipAlpha',
                      'skaiWindowSize','skipWindow','blendSkipPct','blendAiPct',
-                     'temperature','diversityPenalty','gapScale','topNNumbers',
-                     'topNCombos','laplaceK','skipGamma','riskProfile','strategy'];
+                     'temperature','diversityPenalty','gapScale',
+                     'laplaceK','skipGamma'];
         var missing = uiIds.filter(function(k){ return !SKAI_SETTINGS_REGISTRY[k]; });
         if (missing.length > 0) {
           qaFail('qaConsistency', 'qaConsistencyMsg',
