@@ -4180,14 +4180,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           var impStr   = (sr.impact > 0 ? '+' : '') + sr.impact.toFixed(5);
           var varStr   = sr.variance.toFixed(6);
           sensBody.innerHTML +=
-            '<tr>' +
-              '<td>' + sr.label + '</td>' +
-              '<td style="text-align:center;">' + sr.valuesTested + '</td>' +
-              '<td>' + impStr + '</td>' +
-              '<td>' + varStr + '</td>' +
-              '<td style="text-align:center;font-weight:700;">' + sr.direction + '</td>' +
-              '<td><span class="sens-bar" style="width:' + barWidth + 'px;max-width:120px;"></span></td>' +
-            '</tr>';
+            '[[tr]]' +
+              '[[td]]' + sr.label + '[[/td]]' +
+              '[[td style="text-align:center;"]]' + sr.valuesTested + '[[/td]]' +
+              '[[td]]' + impStr + '[[/td]]' +
+              '[[td]]' + varStr + '[[/td]]' +
+              '[[td style="text-align:center;font-weight:700;"]]' + sr.direction + '[[/td]]' +
+              '[[td]][[span class="sens-bar" style="width:' + barWidth + 'px;max-width:120px;"]][[/span]][[/td]]' +
+            '[[/tr]]';
         }
         sensPanel.style.display = 'block';
       }
