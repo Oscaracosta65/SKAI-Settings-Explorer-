@@ -4771,7 +4771,12 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
               var swapScore = eliminated[ei3].compositeScore;
               var bottomPct = roundScores[Math.floor(keepCount * 0.8)];
               if (bottomPct && swapScore > bottomPct.compositeScore) {
-                promoted[promoted.length - 1] = eliminated.splice(ei3, 1)[0];
+                // Replace the lowest-scoring promoted candidate
+                var worstIdx = promoted.length - 1;
+                for (var wi2 = promoted.length - 2; wi2 >= 0; wi2--) {
+                  if (promoted[wi2].compositeScore < promoted[worstIdx].compositeScore) { worstIdx = wi2; }
+                }
+                promoted[worstIdx] = eliminated.splice(ei3, 1)[0];
                 divSwaps++;
               }
               break;
@@ -4787,7 +4792,11 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
               var swapScore2 = eliminated[eli].compositeScore;
               var bottomRef  = roundScores[Math.floor(keepCount * 0.8)];
               if (bottomRef && swapScore2 > bottomRef.compositeScore) {
-                promoted[promoted.length - 1] = eliminated.splice(eli, 1)[0];
+                var worstIdx2 = promoted.length - 1;
+                for (var wi3 = promoted.length - 2; wi3 >= 0; wi3--) {
+                  if (promoted[wi3].compositeScore < promoted[worstIdx2].compositeScore) { worstIdx2 = wi3; }
+                }
+                promoted[worstIdx2] = eliminated.splice(eli, 1)[0];
                 divSwaps++;
               }
               break;
@@ -4867,20 +4876,9 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       }
     }
 
-    // Final: populate topSettings and allResults from the best survivors
-    survivors.sort(function(a, b){
-      // re-score isn't needed; promoted is already sorted — just use last round's promoted scores
-      return 0;
-    });
-
-    // Use last round's promoted scores
-    var finalScored = [];
-    for (var fs = 0; fs < survivors.length && fs < 20; fs++) {
-      var fsResult = await snmEvaluateConfig(survivors[fs], epochBudgets[epochBudgets.length - 1]);
-      finalScored.push(fsResult);
-      await tf.nextFrame();
-    }
-    finalScored.sort(function(a, b){ return b.compositeScore - a.compositeScore; });
+    // Final: populate topSettings and allResults from the last round's promoted scores
+    // (promoted is already sorted; no need to re-evaluate)
+    var finalScored = promoted.slice(0, Math.min(20, promoted.length));
 
     allResults = [];
     topSettings = [];
