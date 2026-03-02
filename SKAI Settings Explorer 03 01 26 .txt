@@ -4872,18 +4872,18 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       });
 
       if (snmLogEl) {
-        var entry = '<div class="snm-round-entry">' +
-          '<strong>Round ' + (round + 1) + '/' + numRounds + '</strong> &nbsp;|&nbsp; ' +
+        var entry = '[[div class="snm-round-entry"]]' +
+          '[[strong]]Round ' + (round + 1) + '/' + numRounds + '[[/strong]] &nbsp;|&nbsp; ' +
           'Pool: ' + poolLen + ' &nbsp;|&nbsp; ' +
           'Epoch budget: ' + budget + ' &nbsp;|&nbsp; ' +
-          'Best score: <span class="snm-kept">' + bestScore + '</span><br>' +
-          '<span class="snm-kept">&#10003; Promoted: ' + promoted.length + '</span> &nbsp; ' +
-          '<span class="snm-wild">&#9733; Wildcards: ' + addedWilds + '</span> &nbsp; ' +
-          '<span class="snm-div">&#8645; Diversity swaps: ' + divSwaps + '</span><br>' +
-          (eliminated.length ? '<span class="snm-elim">&#10007; Eliminated: ' + eliminated.length +
+          'Best score: [[span class="snm-kept"]]' + bestScore + '[[/span]][[br]]' +
+          '[[span class="snm-kept"]]&#10003; Promoted: ' + promoted.length + '[[/span]] &nbsp; ' +
+          '[[span class="snm-wild"]]&#9733; Wildcards: ' + addedWilds + '[[/span]] &nbsp; ' +
+          '[[span class="snm-div"]]&#8645; Diversity swaps: ' + divSwaps + '[[/span]][[br]]' +
+          (eliminated.length ? '[[span class="snm-elim"]]&#10007; Eliminated: ' + eliminated.length +
             (elimReasons.length ? ' (sample: ' + elimReasons.join('; ') + ')' : '') +
-            '</span>' : '') +
-          '</div>';
+            '[[/span]]' : '') +
+          '[[/div]]';
         snmLogEl.innerHTML += entry;
       }
     }
