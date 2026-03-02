@@ -4671,10 +4671,15 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       : 0;
     var stdF12 = Math.sqrt(varF12);
 
-    // Use balanced profile scoring (lambda=0.4, betaBonus=0.75)
-    var compositeScore = (0.4 * muWHS2 + 0.3 * ((p3b + p4b) / 2) + 0.3 * (1 / (1 + stdF12)))
-                         - 0.4 * sigmaWHS2
-                         + 0.75 * pBonus2;
+    // Balanced profile scoring weights
+    var SNM_W_MEAN_WHS    = 0.40;  // weight for mean weighted hit score
+    var SNM_W_DRAW_PROB   = 0.30;  // weight for tail draw probability (p3+, p4+)
+    var SNM_W_STABILITY   = 0.30;  // weight for fold stability (1/stdF1)
+    var SNM_W_VARIANCE    = 0.40;  // penalty weight for WHS variance
+    var SNM_W_BONUS       = 0.75;  // bonus ball reward weight
+    var compositeScore = (SNM_W_MEAN_WHS * muWHS2 + SNM_W_DRAW_PROB * ((p3b + p4b) / 2) + SNM_W_STABILITY * (1 / (1 + stdF12)))
+                         - SNM_W_VARIANCE * sigmaWHS2
+                         + SNM_W_BONUS * pBonus2;
 
     return {
       compositeScore: compositeScore,
@@ -4684,6 +4689,12 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       cfg: cfg
     };
   }
+
+  // Smart Narrowing algorithm constants
+  var SNM_WILDCARD_RATIO          = 0.10; // fraction of pool size to add as wildcards each round
+  var SNM_DIVERSITY_SWAP_THRESHOLD = 0.80; // diversity swaps only if candidate scores above this percentile of promoted
+  var SNM_LOCAL_REFINEMENT_START_ROUND = 2; // 0-indexed: start local neighborhood refinement from round 3
+  var SNM_WILDCARD_GEN_MULTIPLIER = 5;    // over-sample by this factor to find unique wildcard configs
 
   async function runSmartNarrowing() {
     var snmPoolSizeEl  = document.getElementById('snmPoolSize');
@@ -4697,7 +4708,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     var numRounds = snmRoundsEl    ? Math.max(2,  parseInt(snmRoundsEl.value,    10) || 4)   : 4;
     var keepPct   = snmKeepPctEl   ? Math.max(10, parseInt(snmKeepPctEl.value,   10) || 25)  : 25;
     var seedVal   = snmSeedEl      ? parseInt(snmSeedEl.value, 10) : 0;
-    if (!seedVal || isNaN(seedVal)) { seedVal = (Date.now() & 0xFFFFFF); }
+    if (seedVal === 0 || isNaN(seedVal)) { seedVal = (Date.now() & 0xFFFFFF); }
 
     var rng = makePRNG(seedVal);
     var epochBudgets = [25, 50, 100];
@@ -4745,7 +4756,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       roundScores.sort(function(a, b){ return b.compositeScore - a.compositeScore; });
 
       var keepCount   = Math.max(2, Math.floor(poolLen * keepPct / 100));
-      var wildCount   = Math.max(1, Math.floor(poolSize * 0.10));
+      var wildCount   = Math.max(1, Math.floor(poolSize * SNM_WILDCARD_RATIO));
       var promoted    = roundScores.slice(0, keepCount);
       var eliminated  = roundScores.slice(keepCount);
 
@@ -4769,8 +4780,8 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
           for (var ei3 = 0; ei3 < eliminated.length; ei3++) {
             if (eliminated[ei3].cfg.activationFunction === actCategories[ai3]) {
               var swapScore = eliminated[ei3].compositeScore;
-              var bottomPct = roundScores[Math.floor(keepCount * 0.8)];
-              if (bottomPct && swapScore > bottomPct.compositeScore) {
+              var scoreThreshold = roundScores[Math.floor(keepCount * SNM_DIVERSITY_SWAP_THRESHOLD)];
+              if (scoreThreshold && swapScore > scoreThreshold.compositeScore) {
                 // Replace the lowest-scoring promoted candidate
                 var worstIdx = promoted.length - 1;
                 for (var wi2 = promoted.length - 2; wi2 >= 0; wi2--) {
@@ -4790,8 +4801,8 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
           for (var eli = 0; eli < eliminated.length; eli++) {
             if (eliminated[eli].cfg.numHiddenLayers === layerCategories[li3]) {
               var swapScore2 = eliminated[eli].compositeScore;
-              var bottomRef  = roundScores[Math.floor(keepCount * 0.8)];
-              if (bottomRef && swapScore2 > bottomRef.compositeScore) {
+              var scoreThreshold2 = roundScores[Math.floor(keepCount * SNM_DIVERSITY_SWAP_THRESHOLD)];
+              if (scoreThreshold2 && swapScore2 > scoreThreshold2.compositeScore) {
                 var worstIdx2 = promoted.length - 1;
                 for (var wi3 = promoted.length - 2; wi3 >= 0; wi3--) {
                   if (promoted[wi3].compositeScore < promoted[worstIdx2].compositeScore) { worstIdx2 = wi3; }
@@ -4806,7 +4817,8 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       }
 
       // Wildcards: fresh random candidates
-      var wildcards = snmGenerateCandidates(wildCount * 5, makePRNG(rng() * 0xFFFFFF | 0));
+      // Generate 5× the needed wildcard count to increase chances of finding unique (unseen) configs
+      var wildcards = snmGenerateCandidates(wildCount * SNM_WILDCARD_GEN_MULTIPLIER, makePRNG(rng() * 0xFFFFFF | 0));
       var addedWilds = 0;
       for (var wi = 0; wi < wildcards.length && addedWilds < wildCount; wi++) {
         var wSig = snmConfigSig(wildcards[wi]);
@@ -4820,7 +4832,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       }
 
       // Local refinement from round 3+
-      if (round >= 2) {
+      if (round >= SNM_LOCAL_REFINEMENT_START_ROUND) {
         var top10 = promoted.slice(0, Math.min(10, promoted.length));
         for (var ti = 0; ti < top10.length; ti++) {
           var nbrs = snmNeighbors(top10[ti].cfg);
