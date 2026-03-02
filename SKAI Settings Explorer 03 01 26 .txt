@@ -2673,6 +2673,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     matchDistribution = computeEpochDist(pArr, vArr, N);
     updateMatchDistChart();
     preds.dispose();
+    await tf.nextFrame();
   }
 
   function evaluateThresholds(predArr, valArr, thresholds){
