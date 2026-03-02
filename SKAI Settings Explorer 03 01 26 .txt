@@ -1486,20 +1486,15 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
     [[div class="skai-layout"]]
 
       [[div class="skai-panel"]]
-        [[h3]]Settings & Training Context[[/h3]]
+        [[h3]]SKAI Settings[[/h3]]
         [[p class="skai-panel-subtitle"]]
-          Configure the ranges below, then click <strong>Start Search</strong>. The lab will test every combination and surface the best-performing settings you can copy into your live SKAI tools.
+          Configure the SKAI settings below, then click <strong>Start Search</strong>. The lab tests every combination and surfaces the best-performing settings you can copy into your live SKAI tools.
         [[/p]]
 
         [[div id="liveAnalysisData"]]
           [[span style="font-weight:600;font-size:0.8rem;color:#374151;"]]Running:[[/span]]
           [[span style="font-size:0.8rem;color:#6b7280;"]]
             Epochs [[span id="currentEpochs"]]--[[/span]] ·
-            Batch [[span id="currentBatchSize"]]--[[/span]] ·
-            Dropout [[span id="currentDropoutRate"]]--[[/span]] ·
-            LR [[span id="currentLearningRate"]]--[[/span]] ·
-            Fn [[span id="currentActivationFunction"]]--[[/span]] ·
-            Layers [[span id="currentHiddenLayers"]]--[[/span]] ·
             Decay [[span id="currentRecencyDecay"]]--[[/span]] ·
             Skip [[span id="currentSkipAlpha"]]--[[/span]]
           [[/span]]
@@ -1518,20 +1513,18 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
             [[span class="skai-step"]][[span class="skai-step-num"]]4[[/span]] Review best settings in the results panel[[/span]]
           [[/div]]
 
-          [[!-- ─── Section A: Neural Network Training ─── --]]
+          [[!-- ─── SKAI Settings ─── --]]
           [[details class="skai-group" open]]
             [[summary class="skai-group-header"]]
-              [[span class="skai-group-badge skai-group-badge-nn"]]Neural Network[[/span]]
-              Training Settings
+              [[span class="skai-group-badge skai-group-badge-skai"]]SKAI[[/span]]
+              Settings
             [[/summary]]
             [[div class="skai-group-body"]]
 
-              [[div class="skai-preset-row"]]
-                [[span class="skai-preset-label"]]Quick start:[[/span]]
-                [[button type="button" id="presetFast"]]Fast Test[[/button]]
-                [[button type="button" id="presetBalanced"]]Balanced[[/button]]
-                [[button type="button" id="presetDeep"]]Deep Search[[/button]]
-              [[/div]]
+              [[p style="grid-column:1/-1;margin:0 0 6px;font-size:0.78rem;color:#4b5563;"]]
+                Configure all SKAI settings. Values mirror the live SKAI engine on LottoExpert.net.
+                Enter a range (e.g., [[strong]]10-60[[/strong]]) in any numeric field to search across it.
+              [[/p]]
 
               [[div class="skai-slider-widget"]]
                 [[div class="skai-slider-header"]]
@@ -1547,77 +1540,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
                 [[div class="skai-slider-ticks"]][[span]]5[[/span]][[span]]125[[/span]][[span]]250[[/span]][[span]]375[[/span]][[span]]500[[/span]][[/div]]
                 [[small]]Training passes over the data. Drag both handles to set the search range. More epochs = more thorough but slower.[[/small]]
                 [[input type="hidden" id="epochsRange" value="70-130"]]
-              [[/div]]
-
-              [[div class="skai-checkbox-widget"]]
-                [[span class="skai-field-name"]]Batch Size[[/span]]
-                [[div class="skai-checkbox-row" id="batchCheckboxRow"]]
-                  [[label class="skai-batch-pill active"]][[input type="checkbox" class="skai-batch-chk" value="4" checked]]4[[/label]]
-                  [[label class="skai-batch-pill"]][[input type="checkbox" class="skai-batch-chk" value="8"]]8[[/label]]
-                  [[label class="skai-batch-pill"]][[input type="checkbox" class="skai-batch-chk" value="16"]]16[[/label]]
-                  [[label class="skai-batch-pill"]][[input type="checkbox" class="skai-batch-chk" value="32"]]32[[/label]]
-                  [[label class="skai-batch-pill"]][[input type="checkbox" class="skai-batch-chk" value="64"]]64[[/label]]
-                [[/div]]
-                [[small]]Select which batch sizes to test. Smaller sizes (4, 8) give finer weight updates; larger (32, 64) are faster.[[/small]]
-                [[input type="hidden" id="batchSizes" value="4"]]
-              [[/div]]
-
-              [[div class="skai-slider-widget"]]
-                [[div class="skai-slider-header"]]
-                  [[span class="skai-field-name"]]Dropout Rate[[/span]]
-                  [[span class="skai-slider-val" id="dropoutRates_disp"]]0.20[[/span]]
-                [[/div]]
-                [[div class="skai-slider-track-wrap"]]
-                  [[div class="skai-slider-track"]][[/div]]
-                  [[div class="skai-slider-fill" id="dropoutRates_fill"]][[/div]]
-                  [[input type="range" class="skai-thumb" id="dropoutRates_lo" min="0.05" max="0.50" step="0.05" value="0.20"]]
-                  [[input type="range" class="skai-thumb" id="dropoutRates_hi" min="0.05" max="0.50" step="0.05" value="0.20"]]
-                [[/div]]
-                [[div class="skai-slider-ticks"]][[span]]0.05[[/span]][[span]]0.15[[/span]][[span]]0.25[[/span]][[span]]0.35[[/span]][[span]]0.50[[/span]][[/div]]
-                [[small]]Fraction of neurons randomly disabled each update step. Range 0.05–0.50. Wider range = more combos to test.[[/small]]
-                [[input type="hidden" id="dropoutRates" value="0.2"]]
-              [[/div]]
-
-              [[div class="skai-slider-widget"]]
-                [[div class="skai-slider-header"]]
-                  [[span class="skai-field-name"]]Learning Rate[[/span]]
-                  [[span class="skai-slider-val" id="learningRates_disp"]]0.0020[[/span]]
-                [[/div]]
-                [[div class="skai-slider-track-wrap"]]
-                  [[div class="skai-slider-track"]][[/div]]
-                  [[div class="skai-slider-fill" id="learningRates_fill"]][[/div]]
-                  [[input type="range" class="skai-thumb" id="learningRates_lo" min="0.0005" max="0.01" step="0.0005" value="0.002"]]
-                  [[input type="range" class="skai-thumb" id="learningRates_hi" min="0.0005" max="0.01" step="0.0005" value="0.002"]]
-                [[/div]]
-                [[div class="skai-slider-ticks"]][[span]]0.0005[[/span]][[span]]0.003[[/span]][[span]]0.005[[/span]][[span]]0.008[[/span]][[span]]0.010[[/span]][[/div]]
-                [[small]]How fast the model updates its weights. Too high = unstable; too low = slow to learn. Typical: 0.001–0.005.[[/small]]
-                [[input type="hidden" id="learningRates" value="0.002"]]
-              [[/div]]
-
-              [[label]]
-                [[span class="skai-field-name"]]Activation Function[[/span]]
-                [[select id="activationFunctions" multiple]]
-                  [[option value="tanh" selected]]Tanh[[/option]]
-                  [[option value="relu"]]ReLU[[/option]]
-                  [[option value="sigmoid"]]Sigmoid[[/option]]
-                [[/select]]
-                [[small]]Nonlinear function inside each neuron. Tanh is the default. Ctrl+Click to select multiple and test them.[[/small]]
-              [[/label]]
-
-              [[div class="skai-slider-widget"]]
-                [[div class="skai-slider-header"]]
-                  [[span class="skai-field-name"]]Hidden Layers[[/span]]
-                  [[span class="skai-slider-val" id="hiddenLayers_disp"]]2[[/span]]
-                [[/div]]
-                [[div class="skai-slider-track-wrap"]]
-                  [[div class="skai-slider-track"]][[/div]]
-                  [[div class="skai-slider-fill" id="hiddenLayers_fill"]][[/div]]
-                  [[input type="range" class="skai-thumb" id="hiddenLayers_lo" min="1" max="6" step="1" value="2"]]
-                  [[input type="range" class="skai-thumb" id="hiddenLayers_hi" min="1" max="6" step="1" value="2"]]
-                [[/div]]
-                [[div class="skai-slider-ticks"]][[span]]1[[/span]][[span]]2[[/span]][[span]]3[[/span]][[span]]4[[/span]][[span]]5[[/span]][[span]]6[[/span]][[/div]]
-                [[small]]Number of intermediate layers. More = more pattern capacity but higher over-fitting risk on small datasets.[[/small]]
-                [[input type="hidden" id="hiddenLayers" value="2"]]
               [[/div]]
 
               [[div class="skai-slider-widget"]]
@@ -1709,23 +1631,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
                 [[/select]]
                 [[small]]How the lab ranks configurations: balanced trades off average hits vs. volatility; aggressive rewards maximum hits.[[/small]]
               [[/label]]
-
-            [[/div]]
-          [[/details]]
-
-          [[!-- ─── Section B: SKAI Engine Settings ─── --]]
-          [[details class="skai-group"]]
-            [[summary class="skai-group-header"]]
-              [[span class="skai-group-badge skai-group-badge-skai"]]SKAI Engine[[/span]]
-              Scoring &amp; Blend Settings
-            [[/summary]]
-            [[div class="skai-group-body"]]
-
-              [[p style="grid-column:1/-1;margin:0 0 6px;font-size:0.78rem;color:#4b5563;"]]
-                These mirror the live SKAI engine on LottoExpert.net.
-                The lab searches around the values you enter and reports which combination scores best.
-                Enter a range (e.g., [[strong]]10-60[[/strong]]) in any numeric field to search across it.
-              [[/p]]
 
               [[div class="skai-preset-row"]]
                 [[span class="skai-preset-label"]]SKAI presets:[[/span]]
@@ -1906,31 +1811,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
           [[/details]]
 
           [[details]]
-            [[summary]][[strong]]Batch Size[[/strong]][[/summary]]
-            [[p]]How many draws the model sees before updating its weights. Smaller batches (4, 8) produce more frequent updates and often better results on small datasets like lottery history. Larger batches (32, 64) are faster but may learn less precisely. Test several values at once with a comma-separated list.[[/p]]
-          [[/details]]
-
-          [[details]]
-            [[summary]][[strong]]Dropout Rate[[/strong]][[/summary]]
-            [[p]]Randomly turns off a fraction of neurons during each update to prevent the model from memorising the training data. Values 0.1–0.3 are typical. Higher values (0.4–0.5) add more regularisation but can under-train the model. Use a range like [[strong]]0.1-0.4[[/strong]] to let the lab search.[[/p]]
-          [[/details]]
-
-          [[details]]
-            [[summary]][[strong]]Learning Rate[[/strong]][[/summary]]
-            [[p]]Controls how large each weight update is. Too high (e.g., 0.01) causes erratic training; too low (e.g., 0.0001) makes it very slow. Values between 0.001 and 0.005 work well for most lottery datasets. The lab reduces the learning rate automatically when validation loss stops improving.[[/p]]
-          [[/details]]
-
-          [[details]]
-            [[summary]][[strong]]Activation Function[[/strong]][[/summary]]
-            [[p]]The non-linear function applied inside each neuron. [[strong]]Tanh[[/strong]] (default) maps outputs to −1…1 and tends to generalise well on lottery data. [[strong]]ReLU[[/strong]] is faster and works well with deeper networks. [[strong]]Sigmoid[[/strong]] is useful when outputs represent probabilities. Select multiple to have the lab compare them.[[/p]]
-          [[/details]]
-
-          [[details]]
-            [[summary]][[strong]]Hidden Layers[[/strong]][[/summary]]
-            [[p]]The number of intermediate layers stacked between input and output. More layers give the model more capacity to learn complex patterns, but increase the risk of over-fitting on small datasets. Start with 2 layers; add more only if the model consistently under-trains.[[/p]]
-          [[/details]]
-
-          [[details]]
             [[summary]][[strong]]Recency Decay[[/strong]][[/summary]]
             [[p]]Controls how much of the draw history is used. [[strong]]1[[/strong]] = use all available draws. [[strong]]0.5[[/strong]] = use only the most recent 50%. Lower values help the model focus on recent trends, but reduce the amount of training data. Try 0.75 and 1 together to see which performs better.[[/p]]
           [[/details]]
@@ -2089,12 +1969,9 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       [[thead]]
         [[tr]]
           [[th]]Epochs[[/th]]
-          [[th]]Batch[[/th]]
-          [[th]]Dropout[[/th]]
-          [[th]]LR[[/th]]
-          [[th]]ActFn[[/th]]
-          [[th]]Layers[[/th]]
           [[th]]Recency[[/th]]
+          [[th]]Skip α[[/th]]
+          [[th]]Score[[/th]]
         [[/tr]]
       [[/thead]]
       [[tbody id="topSettingsBody"]][[/tbody]]
@@ -2369,11 +2246,6 @@ function computeSensitivityReport(results) {
 
   var settings = [
     { key:'epochs',         label:'Epochs' },
-    { key:'batchSize',      label:'Batch Size' },
-    { key:'dropoutRate',    label:'Dropout Rate' },
-    { key:'learningRate',   label:'Learning Rate' },
-    { key:'activationFunction', label:'Activation Fn' },
-    { key:'numHiddenLayers', label:'Hidden Layers' },
     { key:'recencyDecay',   label:'Recency Decay' },
     { key:'skipAlpha',      label:'Skip Alpha' },
     { key:'skaiFreqWeight', label:'Main Freq Wt' },
@@ -2679,13 +2551,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const estimatedTimeSpan = document.getElementById('estimatedTime');
 
   const currentEpochsSpan = document.getElementById('currentEpochs');
-  const currentBatchSizeSpan = document.getElementById('currentBatchSize');
-  const currentDropoutRateSpan = document.getElementById('currentDropoutRate');
-  const currentLearningRateSpan = document.getElementById('currentLearningRate');
-  const currentActivationFunctionSpan = document.getElementById('currentActivationFunction');
-  const currentHiddenLayersSpan = document.getElementById('currentHiddenLayers');
+
   const currentRecencyDecaySpan = document.getElementById('currentRecencyDecay');
-  const currentSkipAlphaSpan = document.getElementById('currentSkipAlpha'); // NEW: live skip strength
+  const currentSkipAlphaSpan = document.getElementById('currentSkipAlpha');
 
   // NEW: live hint for SKAI Run Mode
   const skaiRunModeSelect = document.getElementById('skaiRunMode');
@@ -2951,7 +2819,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function runSinglePass(){
     const eVal = document.getElementById('epochsRange').value.trim() || '70-130';
-    const bsVal = document.getElementById('batchSizes').value.trim() || '4';
+    const bsVal = '4'; // fixed default – batch size removed from UI
 
     const rdVal = document.getElementById('recencyDecayRates').value.trim() || '1';
     const scoringProfileSelect = document.getElementById('scoringProfile'); // NEW: scoring profile
@@ -3265,12 +3133,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       skipAlphaArr = [1];
     }
 
-    const drVal = document.getElementById('dropoutRates').value.trim() || '0.2';
-    const lrVal = document.getElementById('learningRates').value.trim() || '0.002';
-    const afSelect = document.getElementById('activationFunctions');
-    const selectedAFs = Array.from(afSelect.selectedOptions).map(opt => opt.value);
-    const actArr = selectedAFs.length ? selectedAFs : ['tanh'];
-    const hlVal = document.getElementById('hiddenLayers').value.trim() || '';
+    const drVal = '0.2'; // fixed default – dropout removed from UI
+    const lrVal = '0.002'; // fixed default – learning rate removed from UI
+    const actArr = ['tanh']; // fixed default – activation function removed from UI
+    const hlVal = '2'; // fixed default – hidden layers removed from UI
     function parseRange(str){
       var minEpoch = 5;
       var maxEpoch = 1000;
@@ -3599,11 +3465,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                   });
                 }
                 currentEpochsSpan.innerText = epochs;
-                currentBatchSizeSpan.innerText = batchSize;
-                currentDropoutRateSpan.innerText = dropoutRate;
-                currentLearningRateSpan.innerText = learningRate;
-                currentActivationFunctionSpan.innerText = activationFunction;
-                currentHiddenLayersSpan.innerText = numHiddenLayers;
                 currentRecencyDecaySpan.innerText = recencyDecay;
                 currentSkipAlphaSpan.innerText = skipAlpha; // NEW: show SKIP_ALPHA
 
@@ -4076,11 +3937,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                   predBody.innerHTML +=
                     '[[tr]]' +
                       '[[td]]' + tp.epochs + '[[/td]]' +
-                      '[[td]]' + tp.batchSize + '[[/td]]' +
-                      '[[td]]' + tp.dropoutRate + '[[/td]]' +
-                      '[[td]]' + tp.learningRate + '[[/td]]' +
-                      '[[td]]' + tp.activationFunction + '[[/td]]' +
-                      '[[td]]' + tp.numHiddenLayers + '[[/td]]' +
                       '[[td]]' + tp.recencyDecay + '[[/td]]' +
                       '[[td]]' + tp.actual + '[[/td]]' +
                       '[[td]]' + tp.predicted + '[[/td]]' +
@@ -4167,12 +4023,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                   var html = ''
                     + '[[tr]]'
                     +   '[[td]]' + bestRow.epochs + '[[/td]]'
-                    +   '[[td]]' + bestRow.batchSize + '[[/td]]'
-                    +   '[[td]]' + bestRow.dropoutRate + '[[/td]]'
-                    +   '[[td]]' + bestRow.learningRate + '[[/td]]'
-                    +   '[[td]]' + bestRow.activationFunction + '[[/td]]'
-                    +   '[[td]]' + bestRow.numHiddenLayers + '[[/td]]'
                     +   '[[td]]' + bestRow.recencyDecay + '[[/td]]'
+                    +   '[[td]]' + bestRow.skipAlpha + '[[/td]]'
+                    +   '[[td]]' + bestRow.compositeScore.toFixed(4) + '[[/td]]'
                     + '[[/tr]]';
 
                   setBody.innerHTML = html;
@@ -4419,11 +4272,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
     currentEpochsSpan.innerText = '--';
-    currentBatchSizeSpan.innerText = '--';
-    currentDropoutRateSpan.innerText = '--';
-    currentLearningRateSpan.innerText = '--';
-    currentActivationFunctionSpan.innerText = '--';
-    currentHiddenLayersSpan.innerText = '--';
 
     spinner.style.display = 'none';
     loadingMsg.style.display = 'none';
@@ -4496,13 +4344,9 @@ startBtn.addEventListener('click', async () => {
 // -----------------------------------------
 function applyPreset(values) {
   // Update hidden inputs (the slider JS reads these on sync)
-  document.getElementById('epochsRange').value        = values.epochs;
-  document.getElementById('batchSizes').value         = values.batch;
-  document.getElementById('dropoutRates').value       = values.dropout;
-  document.getElementById('learningRates').value      = values.lr;
-  document.getElementById('hiddenLayers').value       = values.layers;
-  document.getElementById('recencyDecayRates').value  = values.recency;
-  document.getElementById('skipAlphaValues').value    = values.skip;
+  if (values.epochs !== undefined)  { document.getElementById('epochsRange').value       = values.epochs; }
+  if (values.recency !== undefined) { document.getElementById('recencyDecayRates').value = values.recency; }
+  if (values.skip !== undefined)    { document.getElementById('skipAlphaValues').value   = values.skip; }
 
   // Sync range sliders from the new hidden-input values
   function parseMinMax(str) {
@@ -4519,64 +4363,10 @@ function applyPreset(values) {
     var s = parseFloat(str);
     return [s, s];
   }
-  var ep  = parseMinMax(values.epochs);   if (typeof setSliderRange === 'function') { setSliderRange('epochsRange',       ep[0],  ep[1]);  }
-  var dr  = parseMinMax(values.dropout);  if (typeof setSliderRange === 'function') { setSliderRange('dropoutRates',      dr[0],  dr[1]);  }
-  var lr  = parseMinMax(values.lr);       if (typeof setSliderRange === 'function') { setSliderRange('learningRates',     lr[0],  lr[1]);  }
-  var hl  = parseMinMax(values.layers);   if (typeof setSliderRange === 'function') { setSliderRange('hiddenLayers',      hl[0],  hl[1]);  }
-  var rc  = parseMinMax(values.recency);  if (typeof setSliderRange === 'function') { setSliderRange('recencyDecayRates', rc[0],  rc[1]);  }
-  var sk  = parseMinMax(values.skip);     if (typeof setSliderRange === 'function') { setSliderRange('skipAlphaValues',   sk[0],  sk[1]);  }
-  if (typeof syncBatchCheckboxes === 'function') { syncBatchCheckboxes(values.batch); }
-
-  // Activation Functions Multi-Select
-  const afSel = document.getElementById('activationFunctions');
-  Array.from(afSel.options).forEach(o => o.selected = false);
-  values.activation.forEach(a => {
-    const opt = Array.from(afSel.options).find(x => x.value === a);
-    if (opt) opt.selected = true;
-  });
+  if (values.epochs !== undefined)  { var ep = parseMinMax(values.epochs);  if (typeof setSliderRange === 'function') { setSliderRange('epochsRange',       ep[0], ep[1]); } }
+  if (values.recency !== undefined) { var rc = parseMinMax(values.recency); if (typeof setSliderRange === 'function') { setSliderRange('recencyDecayRates', rc[0], rc[1]); } }
+  if (values.skip !== undefined)    { var sk = parseMinMax(values.skip);    if (typeof setSliderRange === 'function') { setSliderRange('skipAlphaValues',   sk[0], sk[1]); } }
 }
-
-// Fast
-document.getElementById('presetFast').addEventListener('click', () => {
-  applyPreset({
-    epochs: "20-40",
-    batch: "4,8",
-    dropout: "0.1",
-    lr: "0.003",
-    activation: ["tanh"],
-    layers: "1",
-    recency: "1",
-    skip: "0.2"
-  });
-});
-
-// Balanced (default recommended)
-document.getElementById('presetBalanced').addEventListener('click', () => {
-  applyPreset({
-    epochs: "70-120",
-    batch: "4,8,16",
-    dropout: "0.2-0.3",
-    lr: "0.002",
-    activation: ["tanh"],
-    layers: "2-3",
-    recency: "0.7",
-    skip: "0.5"
-  });
-});
-
-// Deep Search
-document.getElementById('presetDeep').addEventListener('click', () => {
-  applyPreset({
-    epochs: "120-200",
-    batch: "4,8",
-    dropout: "0.3-0.4",
-    lr: "0.001",
-    activation: ["tanh","relu"],
-    layers: "3-4",
-    recency: "1",
-    skip: "1"
-  });
-});
 
 // ===============================
 // SKAI Engine Presets (Balanced / Conservative / Exploratory)
@@ -4798,10 +4588,11 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
   function updateCombosCount() {
     try {
       var eVal2  = (document.getElementById('epochsRange')   || {value:'100'}).value.trim() || '100';
-      var bsVal2 = (document.getElementById('batchSizes')    || {value:'4'}).value.trim()   || '4';
-      var drVal2 = (document.getElementById('dropoutRates')  || {value:'0.2'}).value.trim() || '0.2';
-      var lrVal2 = (document.getElementById('learningRates') || {value:'0.002'}).value.trim() || '0.002';
-      var hlVal2 = (document.getElementById('hiddenLayers')  || {value:'2'}).value.trim()   || '2';
+      // bsVal2, drVal2, lrVal2, hlVal2 fixed – those controls were removed from UI
+      var bsVal2 = '4';
+      var drVal2 = '0.2';
+      var lrVal2 = '0.002';
+      var hlVal2 = '2';
       var rdVal2 = (document.getElementById('recencyDecayRates') || {value:'1'}).value.trim() || '1';
       var saVal2 = (document.getElementById('skipAlphaValues') || {value:'0.5'}).value.trim() || '0.5';
       var lkVal2 = (document.getElementById('laplaceK')      || {value:'1'}).value.trim()   || '1';
@@ -4842,8 +4633,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       var nRP      = (rpVal2 === 'all') ? 3 : 1;
       var nST      = (stVal2 === 'all') ? 3 : 1;
 
-      var afSel2  = document.getElementById('activationFunctions');
-      var nAF     = afSel2 ? Math.max(1, Array.from(afSel2.selectedOptions).length) : 1;
+      var nAF = 1; // fixed – activation function removed from UI
 
       // Count main weight combos from the 3 range sliders
       function countWeightRange(id, fallback) {
@@ -4877,11 +4667,11 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
 
   // Wire live count to all relevant inputs
   (function wireCombosCount() {
-    var ids = ['epochsRange','batchSizes','dropoutRates','learningRates',
-               'hiddenLayers','recencyDecayRates','skipAlphaValues',
+    var ids = ['epochsRange',
+               'recencyDecayRates','skipAlphaValues',
                'mainFreqRange','mainSkipRange','mainHistRange',
                'laplaceK','skipGamma','riskProfile','skaiStrategy',
-               'activationFunctions','exhaustiveMode'];
+               'exhaustiveMode'];
     ids.forEach(function(id) {
       var el = document.getElementById(id);
       if (!el) { return; }
@@ -5131,11 +4921,6 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     estimatedTimeSpan.innerText = '--';
 
     currentEpochsSpan.innerText = '--';
-    currentBatchSizeSpan.innerText = '--';
-    currentDropoutRateSpan.innerText = '--';
-    currentLearningRateSpan.innerText = '--';
-    currentActivationFunctionSpan.innerText = '--';
-    currentHiddenLayersSpan.innerText = '--';
 
     spinner.style.display = 'none';
     loadingMsg.style.display = 'none';
@@ -5335,21 +5120,17 @@ function syncBatchCheckboxes(csvStr) {
 
 // ─── Initialise all sliders on DOMContentLoaded ───
 function initAllSliders() {
-  // Neural Network group
+  // SKAI Settings
   initSlider({ id:'epochsRange',       min:5,    max:500,  step:5,       format:'range',  decimals:0 });
-  initSlider({ id:'dropoutRates',      min:0.05, max:0.50, step:0.05,    format:'list',   decimals:2 });
-  initSlider({ id:'learningRates',     min:0.0005,max:0.01,step:0.0005,  format:'list',   decimals:4 });
-  initSlider({ id:'hiddenLayers',      min:1,    max:6,    step:1,       format:'list',   decimals:0 });
   initSlider({ id:'recencyDecayRates', min:0,    max:1,    step:0.25,    format:'list',   decimals:2 });
   initSlider({ id:'skipAlphaValues',   min:0,    max:1,    step:0.25,    format:'list',   decimals:2 });
-  initBatchCheckboxes();
 
-  // Main Weight Range sliders (NN section)
+  // Main Weight Range sliders
   initSlider({ id:'mainFreqRange', min:0, max:100, step:10, format:'range', decimals:0 });
   initSlider({ id:'mainSkipRange', min:0, max:100, step:10, format:'range', decimals:0 });
   initSlider({ id:'mainHistRange', min:0, max:100, step:10, format:'range', decimals:0 });
 
-  // SKAI Engine group
+  // SKAI Engine sliders
   initSlider({ id:'skaiWindowSize',    min:100,  max:1500, step:50,      format:'single', decimals:0, single:true });
   initSlider({ id:'skaiSkipWindow',    min:30,   max:600,  step:30,      format:'single', decimals:0, single:true });
   initSlider({ id:'skipGamma',         min:0,    max:1,    step:0.1,     format:'range',  decimals:2 });
