@@ -4087,6 +4087,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                   setBody.innerHTML = html;
                   document.getElementById('topSettings').style.display = 'block';
+                  skaiRenderTop3(topSettings);
                 }
 
 
@@ -5104,6 +5105,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
         '[[td]]' + best.compositeScore.toFixed(4) + '[[/td]]' +
         '[[/tr]]';
       document.getElementById('topSettings').style.display = 'block';
+      skaiRenderTop3(topSettings);
     }
 
     var bestSumEl = document.getElementById('bestSettingsSummary');
@@ -5215,7 +5217,8 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     var p = presets[goal] || presets.balanced;
     // Scale epoch list by budget multiplier (keep values within 500 max)
     var scaledEpochs = p.epochs.split(',').map(function(v) {
-      return Math.min(500, Math.round(parseInt(v, 10) * mult / 50) * 50 || parseInt(v, 10));
+      var parsed = parseInt(v, 10);
+      return isNaN(parsed) ? 50 : Math.min(500, Math.round(parsed * mult / 50) * 50 || parsed);
     }).filter(function(v, i, arr) { return arr.indexOf(v) === i; }).join(',');
     var epochsEl = document.getElementById('epochsRange');
     var decayEl  = document.getElementById('recencyDecayRates');
@@ -5277,6 +5280,52 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     window._skaiTop3Results = results.slice(0, 3);
     return window._skaiTop3Results;
   };
+
+  // ── Render Top 3 cards from topSettings array ─────────────────────────
+  function skaiRenderTop3(settings) {
+    var container = document.getElementById('skaiTop3Cards');
+    if (!container) { return; }
+    var medals = ['🥇','🥈','🥉'];
+    var stabilityThresholds = { high: 0.0015, medium: 0.005 };
+    window._skaiTop3Results = [];
+    for (var i = 0; i < 3; i++) {
+      var r = settings[i];
+      if (!r) { continue; }
+      window._skaiTop3Results.push({ epochs: r.epochs, decay: r.recencyDecay, skip: r.skipAlpha });
+      var scoreEl = document.getElementById('skaiTop3Score' + i);
+      var stabEl  = document.getElementById('skaiTop3Stab' + i);
+      var whyEl   = document.getElementById('skaiTop3Why' + i);
+      if (scoreEl) { scoreEl.textContent = (r.compositeScore || 0).toFixed(4); }
+      if (stabEl) {
+        var stdDev = r.f1StdDev || 0;
+        var stabLabel, stabClass;
+        if (stdDev <= stabilityThresholds.high)   { stabLabel = 'High Stability';   stabClass = 'high'; }
+        else if (stdDev <= stabilityThresholds.medium) { stabLabel = 'Medium Stability'; stabClass = 'medium'; }
+        else                                       { stabLabel = 'Low Stability';    stabClass = 'low'; }
+        stabEl.textContent = stabLabel;
+        stabEl.className = 'skai-top3-stability ' + stabClass;
+      }
+      if (whyEl) {
+        var reasons = [];
+        if (r.avgMatchCount && r.avgMatchCount > 0) {
+          reasons.push('Higher average hit score');
+        }
+        if (r.f1StdDev !== undefined && r.f1StdDev <= stabilityThresholds.medium) {
+          reasons.push('More consistent results');
+        }
+        if (r.compositeScore && r.compositeScore > 0) {
+          reasons.push('Strong composite ranking');
+        }
+        whyEl.textContent = '';
+        reasons.slice(0, 3).forEach(function(s) {
+          var li = document.createElement('li');
+          li.textContent = s;
+          whyEl.appendChild(li);
+        });
+      }
+    }
+    container.style.display = settings.length ? '' : 'none';
+  }
 
   pauseBtn.addEventListener('click', () => {
     isPaused = !isPaused;
@@ -5591,6 +5640,9 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     topSettings = [];
     document.getElementById('topSettingsBody').innerHTML = '';
     document.getElementById('topSettings').style.display = 'none';
+    var top3CardsReset = document.getElementById('skaiTop3Cards');
+    if (top3CardsReset) { top3CardsReset.style.display = 'none'; }
+    window._skaiTop3Results = [];
 
     allResults = [];
     document.getElementById('bestSettingsSummary').style.display = 'none';
