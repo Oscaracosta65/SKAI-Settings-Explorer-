@@ -1563,13 +1563,13 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
 
           [[p style="font-size:0.85rem;font-weight:600;color:#374151;margin:0 0 8px;"]]1. Pick your goal:[[/p]]
           [[div class="skai-goal-grid"]]
-            [[label class="skai-goal-card selected" id="goalCard-steady" onclick="skaiSelectGoal('steady')"]]
-              [[input type="radio" name="skaiGoal" value="steady" checked]]
+            [[label class="skai-goal-card" id="goalCard-steady" onclick="skaiSelectGoal('steady')"]]
+              [[input type="radio" name="skaiGoal" value="steady"]]
               [[div class="skai-goal-card-title"]]🛡 Safe &amp; Steady[[/div]]
               [[div class="skai-goal-card-desc"]]Prioritises consistency. Fewer surprises, reliable performance.[[/div]]
             [[/label]]
-            [[label class="skai-goal-card" id="goalCard-balanced" onclick="skaiSelectGoal('balanced')"]]
-              [[input type="radio" name="skaiGoal" value="balanced"]]
+            [[label class="skai-goal-card selected" id="goalCard-balanced" onclick="skaiSelectGoal('balanced')"]]
+              [[input type="radio" name="skaiGoal" value="balanced" checked]]
               [[div class="skai-goal-card-title"]]⚖ Balanced [[span style="font-size:0.7rem;color:#2563eb;"]]★ Recommended[[/span]][[/div]]
               [[div class="skai-goal-card-desc"]]Best mix of hits and consistency for most players.[[/div]]
             [[/label]]
@@ -5149,7 +5149,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
   }
 
   // ── Simple / Advanced two-lane UI functions ─────────────────────────────
-  window.skaiActiveGoal = 'steady';
+  window.skaiActiveGoal = 'balanced';
   window._skaiSimpleRunning = false;
   window._skaiSimplePaused  = false;
 
@@ -5204,17 +5204,23 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     if (pauseBtn2) { pauseBtn2.disabled = false; }
     // Map goal + budget → preset UI values then trigger existing start
     var presets = {
-      steady:      { epochs:'50,100,150',       decay:'0.5,0.75',    skip:'0,0.25'   },
-      balanced:    { epochs:'50,100,200',        decay:'0.25,0.5,0.75', skip:'0,0.25,0.5' },
-      performance: { epochs:'100,200,300,400',   decay:'0,0.25,0.5,0.75,1', skip:'0,0.25,0.5,0.75,1' },
-      fast:        { epochs:'50,100',            decay:'0.5',         skip:'0.25'     }
+      steady:      { epochs: '50,100,150',     decay: '0.5,0.75',          skip: '0,0.25'            },
+      balanced:    { epochs: '50,100,200',     decay: '0.25,0.5,0.75',     skip: '0,0.25,0.5'        },
+      performance: { epochs: '100,200,300,400', decay: '0,0.25,0.5,0.75,1', skip: '0,0.25,0.5,0.75,1' },
+      fast:        { epochs: '50,100',         decay: '0.5',               skip: '0.25'              }
     };
-    var budgetScale = { quick:0.3, standard:1, deep:3 };
+    // Budget multiplies the epoch upper bound: quick≈30%, standard=100%, deep≈300%
+    var budgetMult = { quick: 0.3, standard: 1, deep: 3 };
+    var mult = budgetMult[budget] || 1;
     var p = presets[goal] || presets.balanced;
+    // Scale epoch list by budget multiplier (keep values within 500 max)
+    var scaledEpochs = p.epochs.split(',').map(function(v) {
+      return Math.min(500, Math.round(parseInt(v, 10) * mult / 50) * 50 || parseInt(v, 10));
+    }).filter(function(v, i, arr) { return arr.indexOf(v) === i; }).join(',');
     var epochsEl = document.getElementById('epochsRange');
     var decayEl  = document.getElementById('recencyDecayRates');
     var skipEl   = document.getElementById('skipAlphaValues');
-    if (epochsEl) { epochsEl.value = p.epochs; }
+    if (epochsEl) { epochsEl.value = scaledEpochs; }
     if (decayEl)  { decayEl.value  = p.decay; }
     if (skipEl)   { skipEl.value   = p.skip; }
     // Trigger existing start button
@@ -5253,6 +5259,8 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     if (skipEl   && r.skip)    { skipEl.value   = r.skip; }
   };
 
+  // Placeholder scaffold: generates a diverse random sample for Top 3 display.
+  // Replace the random score with real scoring from the search pipeline when available.
   window.runDiverseSample = function(sampleSize) {
     sampleSize = sampleSize || 50;
     var results = [];
