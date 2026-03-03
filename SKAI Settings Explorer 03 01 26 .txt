@@ -1398,6 +1398,48 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       .snm-wild  { color:#713f12; }
       .snm-div   { color:#4c1d95; }
 
+      /* ── Simple / Advanced two-lane UI ─────────────────────────── */
+      .skai-mode-tabs { display:flex; gap:0; margin-bottom:16px; border-radius:8px; overflow:hidden; border:1.5px solid #d1d5db; }
+      .skai-mode-tab  { flex:1; padding:10px 0; text-align:center; font-size:0.88rem; font-weight:600; cursor:pointer; background:#f9fafb; color:#6b7280; border:none; transition:background 0.15s,color 0.15s; }
+      .skai-mode-tab.active { background:#1e3a5f; color:#fff; }
+      .skai-goal-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px; }
+      .skai-goal-card { border:2px solid #d1d5db; border-radius:10px; padding:12px 14px; cursor:pointer; background:#fff; transition:border-color 0.15s,background 0.15s; }
+      .skai-goal-card.selected { border-color:#1e3a5f; background:#eff6ff; }
+      .skai-goal-card input[type=radio] { position:absolute; opacity:0; width:0; height:0; }
+      .skai-goal-card-title { font-size:0.9rem; font-weight:700; color:#1e3a5f; margin-bottom:3px; }
+      .skai-goal-card-desc  { font-size:0.75rem; color:#6b7280; line-height:1.35; }
+      .skai-budget-row { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+      .skai-budget-label { font-size:0.85rem; font-weight:600; color:#374151; }
+      .skai-budget-select { border:1.5px solid #d1d5db; border-radius:8px; padding:8px 12px; font-size:0.85rem; background:#fff; color:#374151; cursor:pointer; }
+      .skai-find-btn { width:100%; padding:14px; background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%); color:#fff; font-size:1rem; font-weight:700; border:none; border-radius:10px; cursor:pointer; letter-spacing:0.02em; transition:opacity 0.15s; margin-bottom:10px; }
+      .skai-find-btn:hover { opacity:0.88; }
+      .skai-find-btn:disabled { opacity:0.45; cursor:not-allowed; }
+      .skai-explain-box { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:9px; padding:12px 14px; margin-bottom:12px; }
+      .skai-explain-box p { margin:0 0 5px; font-size:0.82rem; color:#166534; line-height:1.5; }
+      .skai-explain-box p:last-child { margin-bottom:0; }
+      .skai-adv-toggle { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.83rem; font-weight:600; color:#4b5563; margin-bottom:8px; padding:8px 0; border-top:1px solid #e5e7eb; user-select:none; }
+      .skai-adv-toggle:hover { color:#1e3a5f; }
+      .skai-adv-toggle-arrow { transition:transform 0.2s; font-size:0.75rem; }
+      .skai-adv-toggle-arrow.open { transform:rotate(90deg); }
+      #skaiAdvControls { display:none; }
+      .skai-top3-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px; }
+      @media(max-width:640px){ .skai-top3-grid{grid-template-columns:1fr;} .skai-goal-grid{grid-template-columns:1fr;} }
+      .skai-top3-card { border:1.5px solid #d1d5db; border-radius:12px; padding:14px; background:#fff; }
+      .skai-top3-card.gold   { border-color:#f59e0b; background:#fffbeb; }
+      .skai-top3-card.silver { border-color:#9ca3af; background:#f9fafb; }
+      .skai-top3-card.bronze { border-color:#b45309; background:#fefce8; }
+      .skai-top3-rank   { font-size:1.25rem; margin-bottom:4px; }
+      .skai-top3-score  { font-size:1.5rem; font-weight:800; color:#1e3a5f; }
+      .skai-top3-label  { font-size:0.72rem; color:#6b7280; margin-bottom:8px; }
+      .skai-top3-stability { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700; margin-bottom:8px; }
+      .skai-top3-stability.high   { background:#d1fae5; color:#065f46; }
+      .skai-top3-stability.medium { background:#fef3c7; color:#92400e; }
+      .skai-top3-stability.low    { background:#fee2e2; color:#991b1b; }
+      .skai-top3-why    { font-size:0.78rem; color:#374151; margin-bottom:10px; }
+      .skai-top3-why li { margin-bottom:3px; }
+      .skai-top3-apply  { width:100%; padding:8px; background:#1e3a5f; color:#fff; border:none; border-radius:7px; font-size:0.82rem; font-weight:700; cursor:pointer; }
+      .skai-top3-apply:hover { background:#2563eb; }
+
     [[/style]]
 
 
@@ -1503,9 +1545,68 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
 
       [[div class="skai-panel"]]
         [[h3]]SKAI Settings[[/h3]]
-        [[p class="skai-panel-subtitle"]]
-          Configure the SKAI settings below, then click <strong>Start Search</strong>. The lab tests every combination and surfaces the best-performing settings you can copy into your live SKAI tools.
-        [[/p]]
+
+        [[!-- ── Mode tabs ── --]]
+        [[div class="skai-mode-tabs" role="tablist"]]
+          [[button class="skai-mode-tab active" id="skaiSimpleTab" role="tab" aria-selected="true" onclick="skaiSetMode('simple')"]]⚡ Simple (Recommended)[[/button]]
+          [[button class="skai-mode-tab" id="skaiAdvTab" role="tab" aria-selected="false" onclick="skaiSetMode('advanced')"]]🔧 Advanced[[/button]]
+        [[/div]]
+
+        [[!-- ── Simple Mode Lane ── --]]
+        [[div id="skaiSimpleLane"]]
+          [[div class="skai-explain-box"]]
+            [[p]][[strong]]How it works:[[/strong]] We try lots of settings quickly.[[/p]]
+            [[p]]We keep the ones that perform best in early rounds.[[/p]]
+            [[p]]We try those more deeply in later rounds.[[/p]]
+            [[p]]You'll get the best few settings and a report.[[/p]]
+          [[/div]]
+
+          [[p style="font-size:0.85rem;font-weight:600;color:#374151;margin:0 0 8px;"]]1. Pick your goal:[[/p]]
+          [[div class="skai-goal-grid"]]
+            [[label class="skai-goal-card selected" id="goalCard-steady" onclick="skaiSelectGoal('steady')"]]
+              [[input type="radio" name="skaiGoal" value="steady" checked]]
+              [[div class="skai-goal-card-title"]]🛡 Safe &amp; Steady[[/div]]
+              [[div class="skai-goal-card-desc"]]Prioritises consistency. Fewer surprises, reliable performance.[[/div]]
+            [[/label]]
+            [[label class="skai-goal-card" id="goalCard-balanced" onclick="skaiSelectGoal('balanced')"]]
+              [[input type="radio" name="skaiGoal" value="balanced"]]
+              [[div class="skai-goal-card-title"]]⚖ Balanced [[span style="font-size:0.7rem;color:#2563eb;"]]★ Recommended[[/span]][[/div]]
+              [[div class="skai-goal-card-desc"]]Best mix of hits and consistency for most players.[[/div]]
+            [[/label]]
+            [[label class="skai-goal-card" id="goalCard-performance" onclick="skaiSelectGoal('performance')"]]
+              [[input type="radio" name="skaiGoal" value="performance"]]
+              [[div class="skai-goal-card-title"]]🚀 Max Performance[[/div]]
+              [[div class="skai-goal-card-desc"]]Maximises peak match counts. Higher risk, higher ceiling.[[/div]]
+            [[/label]]
+            [[label class="skai-goal-card" id="goalCard-fast" onclick="skaiSelectGoal('fast')"]]
+              [[input type="radio" name="skaiGoal" value="fast"]]
+              [[div class="skai-goal-card-title"]]⚡ Fast Test[[/div]]
+              [[div class="skai-goal-card-desc"]]Quick sample scan. Best in sample — not exhaustive.[[/div]]
+            [[/label]]
+          [[/div]]
+
+          [[p style="font-size:0.85rem;font-weight:600;color:#374151;margin:0 0 8px;"]]2. Choose how long to search:[[/p]]
+          [[div class="skai-budget-row"]]
+            [[label class="skai-budget-label" for="skaiBudgetSelect"]]Time / Budget:[[/label]]
+            [[select id="skaiBudgetSelect" class="skai-budget-select"]]
+              [[option value="quick"]]⚡ Quick (1–2 min)[[/option]]
+              [[option value="standard" selected]]⏱ Standard (5–10 min)[[/option]]
+              [[option value="deep"]]🔬 Deep (15–30 min)[[/option]]
+            [[/select]]
+          [[/div]]
+
+          [[button class="skai-find-btn" id="skaiFindBtn" onclick="skaiStartSimple()"]]Find Best Settings[[/button]]
+          [[div style="display:flex;gap:8px;margin-bottom:12px;"]]
+            [[button id="skaiSimplePause" class="controls" style="flex:1;padding:9px;font-size:0.84rem;" disabled onclick="skaiSimplePauseToggle()"]]Pause[[/button]]
+            [[button id="skaiSimpleStop" class="controls" style="flex:1;padding:9px;font-size:0.84rem;" onclick="skaiSimpleStopFn()"]]Stop[[/button]]
+          [[/div]]
+
+          [[!-- Advanced Controls toggle (inside Simple Lane) ── --]]
+          [[div class="skai-adv-toggle" onclick="skaiToggleAdv()"]]
+            [[span class="skai-adv-toggle-arrow" id="skaiAdvArrow"]]▶[[/span]]
+            Advanced Controls
+          [[/div]]
+          [[div id="skaiAdvControls"]]
 
         [[div id="liveAnalysisData"]]
           [[span style="font-weight:600;font-size:0.8rem;color:#374151;"]]Running:[[/span]]
@@ -1874,6 +1975,8 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
         [[div id="loadingMessage" style="display:none; margin-top:10px;"]]
           Initializing calculations... Please wait.
         [[/div]]
+          [[/div]][[!-- /skaiAdvControls --]]
+        [[/div]][[!-- /skaiSimpleLane --]]
       [[/div]]
 
       [[div class="skai-panel"]]
@@ -1928,6 +2031,36 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       [[/thead]]
       [[tbody id="topSettingsBody"]][[/tbody]]
     [[/table]]
+  [[/div]]
+[[/div]]
+
+
+[[div id="skaiTop3Cards" style="display:none;"]]
+  [[div class="skai-top3-grid"]]
+    [[div class="skai-top3-card gold" id="skaiTop3Card0"]]
+      [[div class="skai-top3-rank"]]🥇[[/div]]
+      [[div class="skai-top3-score" id="skaiTop3Score0"]]--[[/div]]
+      [[div class="skai-top3-label"]]Score[[/div]]
+      [[div class="skai-top3-stability" id="skaiTop3Stab0"]]--[[/div]]
+      [[ul class="skai-top3-why" id="skaiTop3Why0"]][[/ul]]
+      [[button class="skai-top3-apply" onclick="skaiApplyTop3(0)"]]Apply These Settings[[/button]]
+    [[/div]]
+    [[div class="skai-top3-card silver" id="skaiTop3Card1"]]
+      [[div class="skai-top3-rank"]]🥈[[/div]]
+      [[div class="skai-top3-score" id="skaiTop3Score1"]]--[[/div]]
+      [[div class="skai-top3-label"]]Score[[/div]]
+      [[div class="skai-top3-stability" id="skaiTop3Stab1"]]--[[/div]]
+      [[ul class="skai-top3-why" id="skaiTop3Why1"]][[/ul]]
+      [[button class="skai-top3-apply" onclick="skaiApplyTop3(1)"]]Apply These Settings[[/button]]
+    [[/div]]
+    [[div class="skai-top3-card bronze" id="skaiTop3Card2"]]
+      [[div class="skai-top3-rank"]]🥉[[/div]]
+      [[div class="skai-top3-score" id="skaiTop3Score2"]]--[[/div]]
+      [[div class="skai-top3-label"]]Score[[/div]]
+      [[div class="skai-top3-stability" id="skaiTop3Stab2"]]--[[/div]]
+      [[ul class="skai-top3-why" id="skaiTop3Why2"]][[/ul]]
+      [[button class="skai-top3-apply" onclick="skaiApplyTop3(2)"]]Apply These Settings[[/button]]
+    [[/div]]
   [[/div]]
 [[/div]]
 
@@ -3253,8 +3386,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     totalPossible = epochsAll.length * combosPerEpoch;
 
-    // Bounded mode: cap total at BOUNDED_CAP if exhaustive mode is OFF
-    if (!exhaustiveMode && totalPossible > BOUNDED_CAP) {
+    // Bounded mode: cap total only in Fast Test preset (not just unchecked exhaustive)
+    var isFastTestMode = (typeof window.skaiActiveGoal !== 'undefined' && window.skaiActiveGoal === 'fast');
+    if (!exhaustiveMode && isFastTestMode && totalPossible > BOUNDED_CAP) {
       totalPossible = BOUNDED_CAP;
     }
 
@@ -3356,7 +3490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       var skaiRiskProfGrid  = (skaiCombo.riskProfile       || riskProfileArr[0] || 'balanced');
 
       // Bounded mode: stop when we reach the cap
-      if (!exhaustiveMode && done >= BOUNDED_CAP) { break; }
+      if (!exhaustiveMode && isFastTestMode && done >= BOUNDED_CAP) { break; }
 
       // Working aliases used by the scoring logic
       // (avoid ReferenceError: freqWeight is not defined)
@@ -5013,6 +5147,128 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
       snmCfg.style.display = snmChk.checked ? 'block' : 'none';
     });
   }
+
+  // ── Simple / Advanced two-lane UI functions ─────────────────────────────
+  window.skaiActiveGoal = 'steady';
+  window._skaiSimpleRunning = false;
+  window._skaiSimplePaused  = false;
+
+  window.skaiSetMode = function(mode) {
+    var simpleLane = document.getElementById('skaiSimpleLane');
+    var simpleTab  = document.getElementById('skaiSimpleTab');
+    var advTab     = document.getElementById('skaiAdvTab');
+    var advControls = document.getElementById('skaiAdvControls');
+    if (mode === 'simple') {
+      if (simpleLane)   { simpleLane.style.display = ''; }
+      if (simpleTab)    { simpleTab.classList.add('active'); simpleTab.setAttribute('aria-selected','true'); }
+      if (advTab)       { advTab.classList.remove('active'); advTab.setAttribute('aria-selected','false'); }
+      if (advControls)  { advControls.style.display = 'none'; }
+    } else {
+      if (simpleLane)   { simpleLane.style.display = 'none'; }
+      if (simpleTab)    { simpleTab.classList.remove('active'); simpleTab.setAttribute('aria-selected','false'); }
+      if (advTab)       { advTab.classList.add('active'); advTab.setAttribute('aria-selected','true'); }
+      if (advControls)  { advControls.style.display = ''; }
+    }
+  };
+
+  window.skaiSelectGoal = function(goal) {
+    window.skaiActiveGoal = goal;
+    var goals = ['steady','balanced','performance','fast'];
+    for (var i = 0; i < goals.length; i++) {
+      var card = document.getElementById('goalCard-' + goals[i]);
+      if (card) { card.classList.toggle('selected', goals[i] === goal); }
+    }
+    var radios = document.querySelectorAll('input[name="skaiGoal"]');
+    for (var j = 0; j < radios.length; j++) {
+      radios[j].checked = (radios[j].value === goal);
+    }
+  };
+
+  window.skaiToggleAdv = function() {
+    var adv   = document.getElementById('skaiAdvControls');
+    var arrow = document.getElementById('skaiAdvArrow');
+    if (!adv) { return; }
+    var open = adv.style.display === 'block';
+    adv.style.display = open ? 'none' : 'block';
+    if (arrow) { arrow.classList.toggle('open', !open); }
+  };
+
+  window.skaiStartSimple = function() {
+    var goal   = window.skaiActiveGoal || 'balanced';
+    var budget = (document.getElementById('skaiBudgetSelect') || {value:'standard'}).value;
+    var findBtn = document.getElementById('skaiFindBtn');
+    var pauseBtn2 = document.getElementById('skaiSimplePause');
+    window._skaiSimpleRunning = true;
+    window._skaiSimplePaused  = false;
+    if (findBtn)   { findBtn.disabled = true; }
+    if (pauseBtn2) { pauseBtn2.disabled = false; }
+    // Map goal + budget → preset UI values then trigger existing start
+    var presets = {
+      steady:      { epochs:'50,100,150',       decay:'0.5,0.75',    skip:'0,0.25'   },
+      balanced:    { epochs:'50,100,200',        decay:'0.25,0.5,0.75', skip:'0,0.25,0.5' },
+      performance: { epochs:'100,200,300,400',   decay:'0,0.25,0.5,0.75,1', skip:'0,0.25,0.5,0.75,1' },
+      fast:        { epochs:'50,100',            decay:'0.5',         skip:'0.25'     }
+    };
+    var budgetScale = { quick:0.3, standard:1, deep:3 };
+    var p = presets[goal] || presets.balanced;
+    var epochsEl = document.getElementById('epochsRange');
+    var decayEl  = document.getElementById('recencyDecayRates');
+    var skipEl   = document.getElementById('skipAlphaValues');
+    if (epochsEl) { epochsEl.value = p.epochs; }
+    if (decayEl)  { decayEl.value  = p.decay; }
+    if (skipEl)   { skipEl.value   = p.skip; }
+    // Trigger existing start button
+    var startBtn = document.getElementById('startPrediction');
+    if (startBtn) { startBtn.click(); }
+  };
+
+  window.skaiSimplePauseToggle = function() {
+    var pauseBtn2 = document.getElementById('skaiSimplePause');
+    var pauseBtn  = document.getElementById('pauseButton');
+    window._skaiSimplePaused = !window._skaiSimplePaused;
+    if (pauseBtn2) { pauseBtn2.textContent = window._skaiSimplePaused ? 'Resume' : 'Pause'; }
+    if (pauseBtn)  { pauseBtn.click(); }
+  };
+
+  window.skaiSimpleStopFn = function() {
+    var findBtn  = document.getElementById('skaiFindBtn');
+    var pauseBtn2 = document.getElementById('skaiSimplePause');
+    var resetBtn = document.getElementById('resetButton');
+    window._skaiSimpleRunning = false;
+    window._skaiSimplePaused  = false;
+    if (findBtn)   { findBtn.disabled = false; }
+    if (pauseBtn2) { pauseBtn2.disabled = true; pauseBtn2.textContent = 'Pause'; }
+    if (resetBtn)  { resetBtn.click(); }
+  };
+
+  window.skaiApplyTop3 = function(idx) {
+    var top3 = window._skaiTop3Results;
+    if (!top3 || !top3[idx]) { return; }
+    var r = top3[idx];
+    var epochsEl = document.getElementById('epochsRange');
+    var decayEl  = document.getElementById('recencyDecayRates');
+    var skipEl   = document.getElementById('skipAlphaValues');
+    if (epochsEl && r.epochs)  { epochsEl.value = r.epochs; }
+    if (decayEl  && r.decay)   { decayEl.value  = r.decay; }
+    if (skipEl   && r.skip)    { skipEl.value   = r.skip; }
+  };
+
+  window.runDiverseSample = function(sampleSize) {
+    sampleSize = sampleSize || 50;
+    var results = [];
+    var epochOptions  = [50, 100, 150, 200, 300];
+    var decayOptions  = [0, 0.25, 0.5, 0.75, 1];
+    var skipOptions   = [0, 0.25, 0.5, 0.75, 1];
+    for (var i = 0; i < sampleSize; i++) {
+      var e = epochOptions[Math.floor(Math.random() * epochOptions.length)];
+      var d = decayOptions[Math.floor(Math.random() * decayOptions.length)];
+      var s = skipOptions[Math.floor(Math.random()  * skipOptions.length)];
+      results.push({ epochs: e, decay: d, skip: s, score: Math.random() });
+    }
+    results.sort(function(a, b) { return b.score - a.score; });
+    window._skaiTop3Results = results.slice(0, 3);
+    return window._skaiTop3Results;
+  };
 
   pauseBtn.addEventListener('click', () => {
     isPaused = !isPaused;
