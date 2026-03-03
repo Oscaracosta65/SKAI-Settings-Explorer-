@@ -1601,12 +1601,14 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
             [[button id="skaiSimpleStop" class="controls" style="flex:1;padding:9px;font-size:0.84rem;" onclick="skaiSimpleStopFn()"]]Stop[[/button]]
           [[/div]]
 
-          [[!-- Advanced Controls toggle (inside Simple Lane) --]]
+          [[!-- Advanced Controls toggle (visible in simple mode only) --]]
           [[div class="skai-adv-toggle" onclick="skaiToggleAdv()" role="button" aria-controls="skaiAdvControls"]]
             [[span class="skai-adv-toggle-arrow" id="skaiAdvArrow" aria-hidden="true"]]&gt;[[/span]]
             [[span id="skaiAdvArrowLabel"]]Show Advanced Controls[[/span]]
           [[/div]]
-          [[div id="skaiAdvControls"]]
+        [[/div]][[!-- /skaiSimpleLane --]]
+
+        [[div id="skaiAdvControls"]]
 
         [[div id="liveAnalysisData"]]
           [[span style="font-weight:600;font-size:0.8rem;color:#374151;"]]Running:[[/span]]
@@ -1976,7 +1978,6 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
           Initializing calculations... Please wait.
         [[/div]]
           [[/div]][[!-- /skaiAdvControls --]]
-        [[/div]][[!-- /skaiSimpleLane --]]
       [[/div]]
 
       [[div class="skai-panel"]]
