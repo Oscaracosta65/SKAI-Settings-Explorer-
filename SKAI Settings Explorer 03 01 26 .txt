@@ -1546,13 +1546,13 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       [[div class="skai-panel"]]
         [[h3]]SKAI Settings[[/h3]]
 
-        [[!-- ── Mode tabs ── --]]
+        [[!-- Mode tabs --]]
         [[div class="skai-mode-tabs" role="tablist"]]
-          [[button class="skai-mode-tab active" id="skaiSimpleTab" role="tab" aria-selected="true" onclick="skaiSetMode('simple')"]]⚡ Simple (Recommended)[[/button]]
-          [[button class="skai-mode-tab" id="skaiAdvTab" role="tab" aria-selected="false" onclick="skaiSetMode('advanced')"]]🔧 Advanced[[/button]]
+          [[button class="skai-mode-tab active" id="skaiSimpleTab" role="tab" aria-selected="true" onclick="skaiSetMode('simple')"]]Simple (Recommended)[[/button]]
+          [[button class="skai-mode-tab" id="skaiAdvTab" role="tab" aria-selected="false" onclick="skaiSetMode('advanced')"]]Advanced[[/button]]
         [[/div]]
 
-        [[!-- ── Simple Mode Lane ── --]]
+        [[!-- Simple Mode Lane --]]
         [[div id="skaiSimpleLane"]]
           [[div class="skai-explain-box"]]
             [[p]][[strong]]How it works:[[/strong]] We try lots of settings quickly.[[/p]]
@@ -1565,33 +1565,33 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
           [[div class="skai-goal-grid"]]
             [[label class="skai-goal-card" id="goalCard-steady" onclick="skaiSelectGoal('steady')"]]
               [[input type="radio" name="skaiGoal" value="steady"]]
-              [[div class="skai-goal-card-title"]]🛡 Safe &amp; Steady[[/div]]
+              [[div class="skai-goal-card-title"]]Safe &amp; Steady[[/div]]
               [[div class="skai-goal-card-desc"]]Prioritises consistency. Fewer surprises, reliable performance.[[/div]]
             [[/label]]
             [[label class="skai-goal-card selected" id="goalCard-balanced" onclick="skaiSelectGoal('balanced')"]]
               [[input type="radio" name="skaiGoal" value="balanced" checked]]
-              [[div class="skai-goal-card-title"]]⚖ Balanced [[span style="font-size:0.7rem;color:#2563eb;"]]★ Recommended[[/span]][[/div]]
+              [[div class="skai-goal-card-title"]]Balanced [[span style="font-size:0.7rem;color:#2563eb;"]]  (Recommended)[[/span]][[/div]]
               [[div class="skai-goal-card-desc"]]Best mix of hits and consistency for most players.[[/div]]
             [[/label]]
             [[label class="skai-goal-card" id="goalCard-performance" onclick="skaiSelectGoal('performance')"]]
               [[input type="radio" name="skaiGoal" value="performance"]]
-              [[div class="skai-goal-card-title"]]🚀 Max Performance[[/div]]
+              [[div class="skai-goal-card-title"]]Max Performance[[/div]]
               [[div class="skai-goal-card-desc"]]Maximises peak match counts. Higher risk, higher ceiling.[[/div]]
             [[/label]]
             [[label class="skai-goal-card" id="goalCard-fast" onclick="skaiSelectGoal('fast')"]]
               [[input type="radio" name="skaiGoal" value="fast"]]
-              [[div class="skai-goal-card-title"]]⚡ Fast Test[[/div]]
-              [[div class="skai-goal-card-desc"]]Quick sample scan. Best in sample — not exhaustive.[[/div]]
+              [[div class="skai-goal-card-title"]]Fast Test[[/div]]
+              [[div class="skai-goal-card-desc"]]Quick sample scan. Best result found so far, not exhaustive.[[/div]]
             [[/label]]
           [[/div]]
 
-          [[p style="font-size:0.85rem;font-weight:600;color:#374151;margin:0 0 8px;"]]2. Choose how long to search:[[/p]]
+          [[p style="font-size:0.85rem;font-weight:600;color:#374151;margin:0 0 8px;"]]2. Choose search depth:[[/p]]
           [[div class="skai-budget-row"]]
-            [[label class="skai-budget-label" for="skaiBudgetSelect"]]Time / Budget:[[/label]]
+            [[label class="skai-budget-label" for="skaiBudgetSelect"]]Depth:[[/label]]
             [[select id="skaiBudgetSelect" class="skai-budget-select"]]
-              [[option value="quick"]]⚡ Quick (1–2 min)[[/option]]
-              [[option value="standard" selected]]⏱ Standard (5–10 min)[[/option]]
-              [[option value="deep"]]🔬 Deep (15–30 min)[[/option]]
+              [[option value="quick"]]Quick Scan (fewer settings tested)[[/option]]
+              [[option value="standard" selected]]Standard (recommended)[[/option]]
+              [[option value="deep"]]Deep Search (most settings tested)[[/option]]
             [[/select]]
           [[/div]]
 
@@ -1601,10 +1601,10 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
             [[button id="skaiSimpleStop" class="controls" style="flex:1;padding:9px;font-size:0.84rem;" onclick="skaiSimpleStopFn()"]]Stop[[/button]]
           [[/div]]
 
-          [[!-- Advanced Controls toggle (inside Simple Lane) ── --]]
-          [[div class="skai-adv-toggle" onclick="skaiToggleAdv()"]]
-            [[span class="skai-adv-toggle-arrow" id="skaiAdvArrow"]]▶[[/span]]
-            Advanced Controls
+          [[!-- Advanced Controls toggle (inside Simple Lane) --]]
+          [[div class="skai-adv-toggle" onclick="skaiToggleAdv()" role="button" aria-controls="skaiAdvControls"]]
+            [[span class="skai-adv-toggle-arrow" id="skaiAdvArrow" aria-hidden="true"]]&gt;[[/span]]
+            [[span id="skaiAdvArrowLabel"]]Show Advanced Controls[[/span]]
           [[/div]]
           [[div id="skaiAdvControls"]]
 
@@ -2038,7 +2038,7 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
 [[div id="skaiTop3Cards" style="display:none;"]]
   [[div class="skai-top3-grid"]]
     [[div class="skai-top3-card gold" id="skaiTop3Card0"]]
-      [[div class="skai-top3-rank"]]🥇[[/div]]
+      [[div class="skai-top3-rank"]]#1 Best[[/div]]
       [[div class="skai-top3-score" id="skaiTop3Score0"]]--[[/div]]
       [[div class="skai-top3-label"]]Score[[/div]]
       [[div class="skai-top3-stability" id="skaiTop3Stab0"]]--[[/div]]
@@ -2046,7 +2046,7 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       [[button class="skai-top3-apply" onclick="skaiApplyTop3(0)"]]Apply These Settings[[/button]]
     [[/div]]
     [[div class="skai-top3-card silver" id="skaiTop3Card1"]]
-      [[div class="skai-top3-rank"]]🥈[[/div]]
+      [[div class="skai-top3-rank"]]#2[[/div]]
       [[div class="skai-top3-score" id="skaiTop3Score1"]]--[[/div]]
       [[div class="skai-top3-label"]]Score[[/div]]
       [[div class="skai-top3-stability" id="skaiTop3Stab1"]]--[[/div]]
@@ -2054,7 +2054,7 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       [[button class="skai-top3-apply" onclick="skaiApplyTop3(1)"]]Apply These Settings[[/button]]
     [[/div]]
     [[div class="skai-top3-card bronze" id="skaiTop3Card2"]]
-      [[div class="skai-top3-rank"]]🥉[[/div]]
+      [[div class="skai-top3-rank"]]#3[[/div]]
       [[div class="skai-top3-score" id="skaiTop3Score2"]]--[[/div]]
       [[div class="skai-top3-label"]]Score[[/div]]
       [[div class="skai-top3-stability" id="skaiTop3Stab2"]]--[[/div]]
@@ -5150,7 +5150,7 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     });
   }
 
-  // ── Simple / Advanced two-lane UI functions ─────────────────────────────
+  // Simple / Advanced two-lane UI functions
   window.skaiActiveGoal = 'balanced';
   window._skaiSimpleRunning = false;
   window._skaiSimplePaused  = false;
@@ -5187,43 +5187,58 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
   };
 
   window.skaiToggleAdv = function() {
-    var adv   = document.getElementById('skaiAdvControls');
-    var arrow = document.getElementById('skaiAdvArrow');
+    var adv    = document.getElementById('skaiAdvControls');
+    var arrow  = document.getElementById('skaiAdvArrow');
+    var label  = document.getElementById('skaiAdvArrowLabel');
+    var toggle = document.querySelector('.skai-adv-toggle');
     if (!adv) { return; }
     var open = adv.style.display === 'block';
     adv.style.display = open ? 'none' : 'block';
-    if (arrow) { arrow.classList.toggle('open', !open); }
+    if (arrow)  { arrow.classList.toggle('open', !open); }
+    if (label)  { label.textContent = open ? 'Show Advanced Controls' : 'Hide Advanced Controls'; }
+    if (toggle) { toggle.setAttribute('aria-expanded', String(!open)); }
   };
 
   window.skaiStartSimple = function() {
-    var goal   = window.skaiActiveGoal || 'balanced';
-    var budget = (document.getElementById('skaiBudgetSelect') || {value:'standard'}).value;
+    var goal  = window.skaiActiveGoal || 'balanced';
+    var depth = (document.getElementById('skaiBudgetSelect') || {value:'standard'}).value;
     var findBtn = document.getElementById('skaiFindBtn');
     var pauseBtn2 = document.getElementById('skaiSimplePause');
     window._skaiSimpleRunning = true;
     window._skaiSimplePaused  = false;
     if (findBtn)   { findBtn.disabled = true; }
     if (pauseBtn2) { pauseBtn2.disabled = false; }
-    // Map goal + budget → preset UI values then trigger existing start
+    // Map goal + depth to preset epoch/decay/skip values then trigger existing start.
+    // Depth controls how many candidate settings are evaluated (not a time limit).
+    // quick = fewer candidates (coarser grid), deep = more candidates (finer grid).
     var presets = {
-      steady:      { epochs: '50,100,150',     decay: '0.5,0.75',          skip: '0,0.25'            },
-      balanced:    { epochs: '50,100,200',     decay: '0.25,0.5,0.75',     skip: '0,0.25,0.5'        },
-      performance: { epochs: '100,200,300,400', decay: '0,0.25,0.5,0.75,1', skip: '0,0.25,0.5,0.75,1' },
-      fast:        { epochs: '50,100',         decay: '0.5',               skip: '0.25'              }
+      steady: {
+        quick:    { epochs: '50',           decay: '0.5',       skip: '0.25'      },
+        standard: { epochs: '50,100',       decay: '0.25,0.75', skip: '0,0.25'    },
+        deep:     { epochs: '50,100,150',   decay: '0.25,0.5,0.75', skip: '0,0.25,0.5' }
+      },
+      balanced: {
+        quick:    { epochs: '50,100',       decay: '0.5',           skip: '0,0.25'        },
+        standard: { epochs: '50,100,200',   decay: '0.25,0.5,0.75', skip: '0,0.25,0.5'   },
+        deep:     { epochs: '50,100,150,200', decay: '0,0.25,0.5,0.75,1', skip: '0,0.25,0.5,0.75' }
+      },
+      performance: {
+        quick:    { epochs: '100,200',         decay: '0.25,0.75',     skip: '0,0.5'         },
+        standard: { epochs: '100,200,300',     decay: '0,0.25,0.5,1',  skip: '0,0.25,0.5,0.75' },
+        deep:     { epochs: '100,200,300,400', decay: '0,0.25,0.5,0.75,1', skip: '0,0.25,0.5,0.75,1' }
+      },
+      fast: {
+        quick:    { epochs: '50',     decay: '0.5',       skip: '0.25' },
+        standard: { epochs: '50,100', decay: '0.5',       skip: '0.25' },
+        deep:     { epochs: '50,100', decay: '0.25,0.75', skip: '0,0.25' }
+      }
     };
-    // Budget multiplies the epoch upper bound: quick≈30%, standard=100%, deep≈300%
-    var budgetMult = { quick: 0.3, standard: 1, deep: 3 };
-    var mult = budgetMult[budget] || 1;
-    var p = presets[goal] || presets.balanced;
-    // Scale epoch list by budget multiplier (keep values within 500 max)
-    var scaledEpochs = p.epochs.split(',').map(function(v) {
-      var parsed = parseInt(v, 10);
-      return isNaN(parsed) ? 50 : Math.min(500, Math.round(parsed * mult / 50) * 50 || parsed);
-    }).filter(function(v, i, arr) { return arr.indexOf(v) === i; }).join(',');
+    var goalPresets = presets[goal] || presets.balanced;
+    var p = goalPresets[depth] || goalPresets.standard;
     var epochsEl = document.getElementById('epochsRange');
     var decayEl  = document.getElementById('recencyDecayRates');
     var skipEl   = document.getElementById('skipAlphaValues');
-    if (epochsEl) { epochsEl.value = scaledEpochs; }
+    if (epochsEl) { epochsEl.value = p.epochs; }
     if (decayEl)  { decayEl.value  = p.decay; }
     if (skipEl)   { skipEl.value   = p.skip; }
     // Trigger existing start button
@@ -5281,11 +5296,11 @@ document.getElementById('presetExploratorySkai').addEventListener('click', funct
     return window._skaiTop3Results;
   };
 
-  // ── Render Top 3 cards from topSettings array ─────────────────────────
+  // Render Top 3 cards from topSettings array
   function skaiRenderTop3(settings) {
     var container = document.getElementById('skaiTop3Cards');
     if (!container) { return; }
-    var medals = ['🥇','🥈','🥉'];
+    var medals = ['#1','#2','#3'];
     var stabilityThresholds = { high: 0.0015, medium: 0.005 };
     window._skaiTop3Results = [];
     for (var i = 0; i < 3; i++) {
