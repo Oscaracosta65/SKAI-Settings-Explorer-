@@ -2044,7 +2044,7 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       [[div class="skai-top3-label"]]Score[[/div]]
       [[div class="skai-top3-stability" id="skaiTop3Stab0"]]--[[/div]]
       [[ul class="skai-top3-why" id="skaiTop3Why0"]][[/ul]]
-      [[button class="skai-top3-apply" onclick="skaiApplyTop3(0)"]]Apply These Settings[[/button]]
+      [[button class="skai-top3-apply" onclick="skaiApplyTop3(0)"]]Save These Settings[[/button]]
     [[/div]]
     [[div class="skai-top3-card silver" id="skaiTop3Card1"]]
       [[div class="skai-top3-rank"]]#2[[/div]]
@@ -2052,7 +2052,7 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       [[div class="skai-top3-label"]]Score[[/div]]
       [[div class="skai-top3-stability" id="skaiTop3Stab1"]]--[[/div]]
       [[ul class="skai-top3-why" id="skaiTop3Why1"]][[/ul]]
-      [[button class="skai-top3-apply" onclick="skaiApplyTop3(1)"]]Apply These Settings[[/button]]
+      [[button class="skai-top3-apply" onclick="skaiApplyTop3(1)"]]Save These Settings[[/button]]
     [[/div]]
     [[div class="skai-top3-card bronze" id="skaiTop3Card2"]]
       [[div class="skai-top3-rank"]]#3[[/div]]
@@ -2060,7 +2060,7 @@ function weightedHitScore(array $actualMain, ?int $actualBonus,
       [[div class="skai-top3-label"]]Score[[/div]]
       [[div class="skai-top3-stability" id="skaiTop3Stab2"]]--[[/div]]
       [[ul class="skai-top3-why" id="skaiTop3Why2"]][[/ul]]
-      [[button class="skai-top3-apply" onclick="skaiApplyTop3(2)"]]Apply These Settings[[/button]]
+      [[button class="skai-top3-apply" onclick="skaiApplyTop3(2)"]]Save These Settings[[/button]]
     [[/div]]
   [[/div]]
 [[/div]]
@@ -3747,6 +3747,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                   const evalOut = model.evaluate(valX, valY, { batchSize, verbose: 0 });
                   const lossVal = evalOut[0].dataSync()[0];
                   const accVal  = evalOut[1].dataSync()[0];
+                  evalOut[0].dispose();
+                  evalOut[1].dispose();
 
                   preds.dispose();
                   trainX.dispose(); trainY.dispose();
@@ -3860,9 +3862,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                   const featureVec = lastDraw.numbers.concat(skipVecForLatest);
 
                   const latestInput = tf.tensor2d([featureVec]);
-                  const normLatest = latestInput.sub(inputMin)
-                                                .div(inputMax.sub(inputMin).add(tf.scalar(1e-7)));
-                  const finalPred = finalModel.predict(normLatest);
+                  const finalPred = tf.tidy(function() {
+                    const inputRange = inputMax.sub(inputMin).add(tf.scalar(1e-7));
+                    const normLatestT = latestInput.sub(inputMin).div(inputRange);
+                    return finalModel.predict(normLatestT);
+                  });
                   const finalPredArr = await finalPred.array();
                   const mainProbsFinal = finalPredArr[0].slice(0, N);
                   const sortedFinal = mainProbsFinal.map((v, idx) => ({ v, index: idx + 1 }));
@@ -3882,9 +3886,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     runPredictedExtra = null;
                   }
                   latestInput.dispose();
-                  normLatest.dispose();
                   finalPred.dispose();
                   finalModel.dispose();
+                  finalModel = null;
                 }
 
                 let actualStr = 'No data';
@@ -4282,20 +4286,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     matchDistribution: matchDistribution.slice()
   };
   addRunAndPlotBest(result);
+  // Increment analysis counter and yield to browser after each complete analysis.
+  // This prevents the UI from freezing between iterations.
+  done++;
+  totalAnalyses = done;
+  totalAnalysesSpan.innerText = done;
+  updateProgress(done, totalPossible, startTime);
+  await tf.nextFrame();
+  if (!exhaustiveMode && done >= BOUNDED_CAP) { return; }
 } // ← end recencyDecay loop
 
                 } // ← end skipAlpha loop
 
-              } // ← end skaiWeightCombos loop
+              } // ← end numHiddenLayers loop
 
-                done++;
-                totalAnalyses = done;
-                totalAnalysesSpan.innerText = done;
-                updateProgress(done, totalPossible, startTime);
-                // Yield to UI
-                await tf.nextFrame();
-                // Bounded mode: stop if cap reached
-                if (!exhaustiveMode && done >= BOUNDED_CAP) { return; }
               }
             }
           }
